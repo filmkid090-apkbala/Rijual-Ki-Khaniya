@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#6d4aff">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Khaniya">
+<meta name="description" content="Rijual Ki Khaniya — बच्चों की हिंदी कहानियाँ">
+<title>Admin - Rijual Ki Khaniya</title>
+<meta name="robots" content="noindex,nofollow">
+<style>
+:root{--purple:#6d4aff;--ink:#24213b;--muted:#716e85;--cream:#fffaf0;--pink:#ffdfeb;--yellow:#ffe58b}
+*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans Devanagari",sans-serif}
+header{background:linear-gradient(135deg,#6d4aff,#a06bff);color:white;padding:24px 18px 26px;border-radius:0 0 28px 28px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{font-size:22px;font-weight:900}.tag{font-size:12px;opacity:.9}.hero{margin-top:22px;font-size:25px;font-weight:850;line-height:1.35}.hero small{display:block;font-size:14px;font-weight:500;margin-top:7px;opacity:.95}
+main{max-width:760px;margin:auto;padding:18px 15px 36px}.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+button{font:inherit;border:0;cursor:pointer}.pill{padding:10px 14px;border-radius:999px;background:white;color:var(--purple);font-weight:750;box-shadow:0 3px 12px #2c1a4d0c}.primary{background:var(--purple);color:white;padding:12px 16px;border-radius:14px;font-weight:800}.secondary{background:#f0ecff;color:var(--purple);padding:11px 13px;border-radius:12px;font-weight:750}.danger{background:#ffe6e6;color:#a02e38;padding:10px 12px;border-radius:12px}
+.sectionhead{display:flex;justify-content:space-between;align-items:center;margin:10px 2px 12px}.sectionhead h2{font-size:19px;margin:0}.muted{color:var(--muted);font-size:13px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}
+.storycard{border:1px solid #eee7ff;background:white;border-radius:20px;padding:15px;text-align:left;min-height:166px;box-shadow:0 5px 18px #2c1a4d08;display:flex;flex-direction:column;gap:8px;color:var(--ink)}
+.emoji{font-size:36px}.storycard strong{font-size:16px;line-height:1.4}.storycard small{color:var(--muted)}
+.panel{background:white;border:1px solid #eee7ff;border-radius:22px;padding:18px;margin-top:18px;box-shadow:0 5px 18px #2c1a4d08}
+.hidden{display:none!important}.storytitle{font-size:24px;font-weight:900;line-height:1.4;margin:0 0 8px}.storyart{background:linear-gradient(135deg,var(--pink),var(--yellow));border-radius:18px;min-height:120px;display:grid;place-items:center;font-size:62px;margin:12px 0}
+.storytext{font-size:17px;line-height:1.95;white-space:pre-wrap}.controls{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.field{width:100%;border:1px solid #ded8f2;border-radius:12px;padding:12px;font:inherit;background:#fff}.field:focus{outline:2px solid #b9aaff}label{display:block;font-weight:750;font-size:14px;margin:12px 0 6px}.notice{background:#fff4c8;padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.6;margin-top:12px}
+.modalbg{position:fixed;inset:0;background:#24213b99;display:grid;place-items:center;padding:18px;z-index:50}.modal{background:#fff;border-radius:22px;padding:20px;width:100%;max-width:360px;box-shadow:0 10px 40px #0004}.modal h3{margin:0 0 4px}.err{color:#a02e38;font-size:13px;min-height:18px;margin:8px 0 0}
+.thumb{width:100%;height:90px;object-fit:cover;border-radius:12px;background:#f0ecff}.badges{font-size:13px}
+.storyart{overflow:hidden}.storyart img{width:100%;max-height:360px;object-fit:cover;display:block}
+.mediabox{margin:12px 0}.mediabox video{width:100%;max-height:420px;border-radius:14px;background:#000}.mediabox audio{width:100%}
+.mediabox .lbl{font-size:13px;font-weight:750;margin-bottom:6px;color:var(--muted)}
+.filebox{border:1px dashed #cfc6f5;border-radius:14px;padding:10px 12px;margin-top:6px;background:#faf8ff}.filebox small{display:block;color:var(--muted);margin-top:4px}.filebox img.prev{max-width:140px;max-height:100px;border-radius:10px;display:block;margin-top:8px}.filebox label.chk{display:flex;gap:8px;align-items:center;font-weight:500;font-size:13px;margin:8px 0 0}
+.progress{background:#fff4c8;border-radius:12px;padding:10px 12px;font-size:13px;margin-top:10px}
+@media(min-width:600px){header{padding-left:max(22px,calc((100% - 720px)/2));padding-right:max(22px,calc((100% - 720px)/2))}}
+</style>
+</head>
+<body data-admin="1">
+<header><div class="top"><div><div class="brand" id="brand">🌈 Rijual Ki Khaniya</div><div class="tag">छोटी कहानियाँ, बड़ी सीख</div></div><div><button class="pill" id="adminLoginBtn">🔐 Admin Login</button><button class="pill hidden" id="adminLogoutBtn">Logout</button></div></div>
+<div class="hero">चलो, कहानी की दुनिया में चलें!<small>पढ़ो और सुनो — पाठकों के लिए लॉगिन नहीं चाहिए ✨</small></div></header>
+<main>
+<div class="tools"><button class="pill" id="allBtn">📚 सभी कहानियाँ</button><button class="pill hidden admin-only" id="addBtn">➕ कहानी जोड़ें</button><button class="pill hidden" id="installBtn">📲 App Install करें</button></div>
+<div class="notice hidden" id="installHelp"></div>
+<div class="notice hidden admin-only" id="setupWarn">⚠️ Admin ध्यान दें: फोटो/वीडियो/ऑडियो चालू करने के लिए Supabase SQL Editor में <b>setup_media.sql</b> एक बार चलाएँ।</div>
+<div class="notice" id="adminStatus">जाँच हो रही है…</div>
+<section id="home">
+<div class="sectionhead"><h2>आज कौन-सी कहानी सुनें?</h2><span class="muted" id="count"></span></div>
+<div id="cards" class="cards"></div>
+<div class="notice">📖 कहानियाँ पढ़ने और सुनने के लिए किसी लॉगिन की ज़रूरत नहीं। कार्ड पर क्लिक करें और मज़ा लें! 🎧</div>
+</section>
+<section id="reader" class="panel hidden">
+<button class="secondary" id="backBtn">← सभी कहानियाँ</button>
+<div class="storyart" id="readEmoji">📖</div><h1 class="storytitle" id="readTitle"></h1>
+<div class="muted" id="readMeta">हिंदी कहानी</div>
+<div id="readAudio" class="mediabox hidden"></div><div id="readVideo" class="mediabox hidden"></div><p class="storytext" id="readText"></p>
+<div class="controls"><button class="primary" id="speakBtn">🔊 कहानी सुनें</button><button class="secondary" id="pauseBtn">⏸ रोकें</button><button class="secondary" id="resumeBtn">▶️ जारी रखें</button><button class="secondary" id="stopBtn">⏹ बंद करें</button><button class="secondary hidden admin-only" id="editCurrentBtn">✏️ Edit करें</button></div>
+</section>
+<section id="editor" class="panel hidden">
+<button class="secondary" id="cancelEditBtn">← वापस</button><h2 id="editorHeading">नई कहानी जोड़ें</h2>
+<label for="titleInput">कहानी का नाम</label><input class="field" id="titleInput" placeholder="जैसे: ईमानदार रामू">
+<label for="emojiInput">कहानी का emoji</label><input class="field" id="emojiInput" maxlength="8" placeholder="📖">
+<label for="categoryInput">श्रेणी</label><input class="field" id="categoryInput" placeholder="मज़ेदार / सीख वाली / सोने से पहले">
+<label for="textInput">कहानी का पूरा टेक्स्ट</label><textarea class="field" id="textInput" rows="9" placeholder="यहाँ अपनी हिंदी कहानी लिखें..."></textarea>
+<label>🖼️ फोटो (अपलोड)</label><div class="filebox"><input type="file" id="imageInput" accept="image/*"><img class="prev hidden" id="imagePrev" alt=""><small id="imageNow"></small><label class="chk hidden" id="imageRmWrap"><input type="checkbox" id="imageRm"> पुरानी फोटो हटाएँ</label></div>
+<label>🎬 वीडियो (अपलोड, ज़्यादा से ज़्यादा 50 MB)</label><div class="filebox"><input type="file" id="videoInput" accept="video/*"><small id="videoNow"></small><label class="chk hidden" id="videoRmWrap"><input type="checkbox" id="videoRm"> पुराना वीडियो हटाएँ</label></div>
+<label>🎧 ऑडियो / आपकी आवाज़ (अपलोड, 50 MB तक)</label><div class="filebox"><input type="file" id="audioInput" accept="audio/*"><small id="audioNow"></small><label class="chk hidden" id="audioRmWrap"><input type="checkbox" id="audioRm"> पुराना ऑडियो हटाएँ</label></div>
+<div class="progress hidden" id="saveProgress"></div>
+<div class="controls"><button class="primary" id="saveBtn">💾 कहानी सेव करें</button><button class="danger" id="deleteBtn" hidden>कहानी हटाएँ</button></div>
+</section>
+</main>
+<footer style="text-align:center;color:#716e85;font-size:12px;padding:24px 10px">Rijual Ki Khaniya · कहानियाँ पढ़ें और सुनें</footer>
+<div id="loginModal" class="modalbg hidden"><form class="modal" id="loginForm" autocomplete="on">
+<h3>🔐 Admin Login</h3><div class="muted">सिर्फ़ Admin का password डालें</div>
+<input type="email" id="loginEmail" autocomplete="username" hidden>
+<label for="loginPass">Password</label><input class="field" type="password" id="loginPass" autocomplete="current-password" required>
+<div class="err" id="loginErr"></div>
+<div class="controls"><button class="primary" type="submit" id="loginSubmit">Login</button><button class="secondary" type="button" id="loginCancel">रद्द करें</button></div>
+</form></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+<script src="./config.js"></script>
+<script src="./app.js"></script>
+<script src="./pwa.js"></script>
+</body></html>

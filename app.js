@@ -14,6 +14,7 @@ function show(section){['home','reader','editor'].forEach(id=>$(id).classList.to
 function setAdminUI(){
   document.querySelectorAll('.admin-only').forEach(el=>el.classList.toggle('hidden',!isAdmin));
   $('adminLogoutBtn').classList.toggle('hidden',!isAdmin);
+  const lb=$('adminLoginBtn');if(lb)lb.classList.toggle('hidden',isAdmin);
   $('setupWarn').classList.toggle('hidden',!(isAdmin&&!hasMediaCols));
 }
 function fromDb(r){return {id:String(r.id),title:r.title,text:r.content,emoji:r.emoji||'📖',category:r.category||'हिंदी कहानी',image:r.image_url||'',video:r.video_url||'',audio:r.audio_url||''}}
@@ -163,6 +164,7 @@ $('brand').onclick=()=>{
   taps++;clearTimeout(tapTimer);tapTimer=setTimeout(()=>taps=0,2500);
   if(taps>=5){taps=0;if(!isAdmin)openLogin()}
 };
+{const lb=$('adminLoginBtn');if(lb)lb.onclick=openLogin}
 $('loginCancel').onclick=closeLogin;
 $('loginModal').addEventListener('click',e=>{if(e.target.id==='loginModal')closeLogin()});
 $('loginForm').onsubmit=async e=>{
@@ -272,6 +274,10 @@ $('deleteBtn').onclick=async()=>{
 /* ---------- शुरुआत ---------- */
 (async()=>{
   setAdminUI();
+  const st=$('adminStatus');
+  if(st){
+    st.innerHTML=(configured?'✅ config.js भरा हुआ है':'❌ config.js अभी खाली है — उसमें Supabase URL, key और email भरें')+'<br>'+(window.supabase?'✅ Supabase चालू':'❌ Supabase library load नहीं हुई (इंटरनेट जाँचें)');
+  }
   if(!configured){$('cards').innerHTML='<p>Setup बाकी है। config.js में Supabase URL, Publishable key और Admin email भरने के बाद वेबसाइट चलने लगेगी।</p>';return}
   if(!window.supabase){$('cards').innerHTML='<p>Supabase library load नहीं हुई। इंटरनेट कनेक्शन जाँचें।</p>';return}
   supabaseClient=window.supabase.createClient(config.SUPABASE_URL,config.SUPABASE_PUBLISHABLE_KEY);
@@ -287,5 +293,5 @@ $('deleteBtn').onclick=async()=>{
     }
   }catch(err){console.error(err)}
   await loadStories();
-  if(location.hash==='#admin'&&!isAdmin)openLogin();
+  if((location.hash==='#admin'||document.body.dataset.admin)&&!isAdmin)openLogin();
 })();

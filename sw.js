@@ -1,8 +1,8 @@
 // Rijual Ki Khaniya service worker
 // Network-first: hamesha naya code/kahaniyan milte hain; internet na ho to purani copy dikhti hai.
 // Supabase (database/login) ki requests kabhi cache nahi hoti.
-const CACHE = 'rijual-v2';
-const FILES = ['./','./index.html','./app.js','./pwa.js','./config.js','./manifest.json','./icon-192.png','./icon-512.png'];
+const CACHE = 'rijual-v3';
+const FILES = ['./','./index.html','./admin.html','./app.js','./pwa.js','./config.js','./manifest.json','./icon-192.png','./icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).catch(() => {}));
   self.skipWaiting();

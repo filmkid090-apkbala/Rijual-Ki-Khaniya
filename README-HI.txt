@@ -64,3 +64,10 @@ KAHANI MEIN MEDIA:
  - Photo (auto chhoti ho jaati hai), Video (50 MB tak), Audio/aapki awaaz (50 MB tak) chun sakte hain. Sab optional hai.
  - Audio upload ho to padhne wale audio player se sunenge; na ho to "Kahani sunein" wali computer awaaz chalegi.
  - Video bada ho to phone mein compress karke daalein (Supabase free plan mein 50 MB limit hai).
+
+ADMIN PAGE (sabse aasan tareeka)
+ - Apni site ke address ke aakhir mein  admin.html  lagakar kholein.
+   Jaise: https://TUMHARA-NAAM.github.io/REPO-NAAM/admin.html
+ - Is page par "Admin Login" button dikhta hai aur password box apne-aap khulta hai. Is address ko bookmark kar lein.
+ - Ye page public site par kahin link nahi hai, isliye sirf aap jaante hain.
+ - Upar ek line batati hai ki config.js bhara hai ya nahi.
