@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#6d4aff">
+<meta name="description" content="बच्चों की हिंदी कहानियाँ और आवाज़ में narration">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>नन्ही कहानियाँ</title>
+<style>
+:root{--purple:#6d4aff;--ink:#24213b;--muted:#716e85;--cream:#fffaf0;--pink:#ffdfeb;--yellow:#ffe58b;--mint:#d9f8e9}
+*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans Devanagari",sans-serif}
+header{background:linear-gradient(135deg,#6d4aff,#a06bff);color:white;padding:24px 18px 26px;border-radius:0 0 28px 28px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{font-size:22px;font-weight:900}.tag{font-size:12px;opacity:.9}.hero{margin-top:22px;font-size:25px;font-weight:850;line-height:1.35}.hero small{display:block;font-size:14px;font-weight:500;margin-top:7px;opacity:.95}
+main{max-width:760px;margin:auto;padding:18px 15px 36px}.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+button{font:inherit;border:0;cursor:pointer}.pill{padding:10px 14px;border-radius:999px;background:white;color:var(--purple);font-weight:750;box-shadow:0 3px 12px #2c1a4d0c}.primary{background:var(--purple);color:white;padding:12px 16px;border-radius:14px;font-weight:800}.secondary{background:#f0ecff;color:var(--purple);padding:11px 13px;border-radius:12px;font-weight:750}.danger{background:#ffe6e6;color:#a02e38;padding:10px 12px;border-radius:12px}
+.sectionhead{display:flex;justify-content:space-between;align-items:center;margin:10px 2px 12px}.sectionhead h2{font-size:19px;margin:0}.muted{color:var(--muted);font-size:13px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}
+.storycard{border:1px solid #eee7ff;background:white;border-radius:20px;padding:15px;text-align:left;min-height:166px;box-shadow:0 5px 18px #2c1a4d08;display:flex;flex-direction:column;gap:8px;color:var(--ink)}
+.emoji{font-size:36px}.storycard strong{font-size:16px;line-height:1.4}.storycard small{color:var(--muted)}
+.panel{background:white;border:1px solid #eee7ff;border-radius:22px;padding:18px;margin-top:18px;box-shadow:0 5px 18px #2c1a4d08}
+.hidden{display:none!important}.storytitle{font-size:24px;font-weight:900;line-height:1.4;margin:0 0 8px}.storyart{background:linear-gradient(135deg,var(--pink),var(--yellow));border-radius:18px;min-height:120px;display:grid;place-items:center;font-size:62px;margin:12px 0}
+.storytext{font-size:17px;line-height:1.95;white-space:pre-wrap}.controls{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.field{width:100%;border:1px solid #ded8f2;border-radius:12px;padding:12px;font:inherit;background:#fff}.field:focus{outline:2px solid #b9aaff}label{display:block;font-weight:750;font-size:14px;margin:12px 0 6px}.formrow{display:flex;gap:8px}.formrow>*{flex:1}footer{text-align:center;color:var(--muted);font-size:12px;padding:24px 10px}
+.notice{background:#fff4c8;padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.6;margin-top:12px}
+@media(min-width:600px){header{padding-left:max(22px,calc((100% - 720px)/2));padding-right:max(22px,calc((100% - 720px)/2))}}
+</style>
+</head>
+<body>
+<header><div class="top"><div><div class="brand">🌈 नन्ही कहानियाँ</div><div class="tag">छोटी कहानियाँ, बड़ी सीख</div></div><button class="pill" id="installBtn" hidden>ऐप इंस्टॉल करें</button></div>
+<div class="hero">चलो, कहानी की दुनिया में चलें!<small>पढ़ो, सुनो और अपनी नई कहानियाँ जोड़ो ✨</small></div></header>
+<main>
+<div class="tools"><button class="pill" id="allBtn">📚 सभी कहानियाँ</button><button class="pill" id="addBtn">➕ कहानी जोड़ें</button><button class="pill" id="exportBtn">⬇️ बैकअप</button><button class="pill" id="importBtn">⬆️ बैकअप खोलें</button><input id="importFile" type="file" accept="application/json" hidden></div>
+<section id="home">
+<div class="sectionhead"><h2>आज कौन-सी कहानी सुनें?</h2><span class="muted" id="count"></span></div>
+<div id="cards" class="cards"></div>
+<div class="notice">💡 आपकी जोड़ी गई कहानियाँ इसी डिवाइस में सेव होती हैं। पहली बार ऐप खोलने और इंस्टॉल करने के लिए इंटरनेट चाहिए; बाद में ऐप ऑफलाइन खुल सकता है। हिंदी आवाज़ ऑफलाइन तभी चलेगी जब आपके फोन में हिंदी Text-to-Speech voice उपलब्ध हो।</div>
+</section>
+<section id="reader" class="panel hidden">
+<button class="secondary" id="backBtn">← सभी कहानियाँ</button>
+<div class="storyart" id="readEmoji">📖</div><h1 class="storytitle" id="readTitle"></h1>
+<div class="muted" id="readMeta"></div><p class="storytext" id="readText"></p>
+<div class="controls"><button class="primary" id="speakBtn">🔊 कहानी सुनें</button><button class="secondary" id="pauseBtn">⏸ रोकें</button><button class="secondary" id="resumeBtn">▶️ जारी रखें</button><button class="secondary" id="stopBtn">⏹ बंद करें</button><button class="secondary" id="editCurrentBtn">✏️ Edit करें</button></div>
+<div class="muted">आवाज़ आपके फोन के उपलब्ध हिंदी Text-to-Speech इंजन से चलेगी।</div>
+</section>
+<section id="editor" class="panel hidden">
+<button class="secondary" id="cancelEditBtn">← वापस</button><h2 id="editorHeading">नई कहानी जोड़ें</h2>
+<label for="titleInput">कहानी का नाम</label><input class="field" id="titleInput" placeholder="जैसे: ईमानदार रामू">
+<label for="emojiInput">कहानी का emoji</label><input class="field" id="emojiInput" maxlength="8" value="📖" placeholder="📖">
+<label for="categoryInput">श्रेणी</label><input class="field" id="categoryInput" placeholder="मज़ेदार / सीख वाली / सोने से पहले">
+<label for="textInput">कहानी का पूरा टेक्स्ट</label><textarea class="field" id="textInput" rows="9" placeholder="यहाँ अपनी हिंदी कहानी लिखें..."></textarea>
+<div class="controls"><button class="primary" id="saveBtn">💾 कहानी सेव करें</button><button class="danger" id="deleteBtn" hidden>कहानी हटाएँ</button></div>
+<p class="muted">टिप: कहानी सेव करने के बाद उसे खोलकर “कहानी सुनें” दबाएँ।</p>
+</section>
+</main>
+<footer>नन्ही कहानियाँ · आपका निजी, ऑफलाइन-फ्रेंडली कहानी संग्रह</footer>
+<script src="app.js"></script>
+</body></html>
