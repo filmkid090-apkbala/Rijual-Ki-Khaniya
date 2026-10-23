@@ -1,11 +1,38 @@
 {
-  "name": "नन्ही कहानियाँ",
-  "short_name": "कहानियाँ",
-  "description": "बच्चों की हिंदी कहानियाँ और voice narration",
+  "name": "Rijual Ki Khaniya",
+  "short_name": "Khaniya",
+  "description": "बच्चों की हिंदी कहानियाँ — पढ़ें और सुनें",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
+  "lang": "hi",
   "background_color": "#fffaf0",
   "theme_color": "#6d4aff",
-  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "id": "./",
+  "categories": [
+    "kids",
+    "education",
+    "books"
+  ]
 }

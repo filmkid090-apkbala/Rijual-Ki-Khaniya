@@ -37,4 +37,30 @@ UPDATE NOTES (fixes)
 - Edit/Delete ab check karte hain ki permission mili ya nahi; chup-chaap fail nahi hota.
 - Lambi kahani ki awaaz beech mein nahi ruki (text chhote tukdon mein bol-ta hai).
 - Emoji/Shreni wale khaali fields hata diye (database mein sirf title + content save hota hai).
-- index.html mein manifest.json ka link joda gaya hai. Agar aapki repo ki manifest file ka naam alag hai, to index.html mein line 7 badal lein.
+
+MOBILE APP INSTALL (PWA) - naya
+Is ZIP ki SAARI files GitHub repo mein upload karein (purani files replace karein):
+  index.html, app.js, pwa.js, sw.js, manifest.json, config.js, icon-192.png, icon-512.png,
+  icon-maskable-512.png, apple-touch-icon.png
+- Android (Chrome): site kholein -> "📲 App Install Karein" button dikhega, ya menu (⋮) -> Install app.
+- iPhone (Safari): Share -> Add to Home Screen (page par guide bhi dikhta hai).
+- Install ke liye site https:// par honi chahiye (GitHub Pages par hoti hai).
+- sw.js network-first hai: naya update turant milta hai, internet na ho to purani copy chalti hai.
+  Supabase login/database kabhi cache nahi hota.
+- Agar purani manifest/sw file repo mein thi, to ye files unhe replace kar dengi.
+
+=========== NAYA: FOTO / VIDEO / AUDIO + HIDDEN ADMIN LOGIN ===========
+SETUP (sirf ek baar):
+ 1. Supabase -> SQL Editor -> setup_media.sql poora paste karke RUN karein.
+    (Naye columns, save permissions aur "story-media" storage bucket ban jata hai.)
+ 2. Is ZIP ki saari files GitHub mein replace karein. config.js mein apni 3 cheezein bharein.
+
+ADMIN LOGIN AB SABKO NAHI DIKHTA:
+ - Website ke upar "Rijual Ki Khaniya" naam par 5 baar jaldi-jaldi tap karein -> login box khulega.
+ - Ya website ke address ke aakhir mein #admin lagayein (jaise https://...github.io/repo/#admin).
+
+KAHANI MEIN MEDIA:
+ - Admin login -> "Kahani jodein" ya kisi kahani mein "Edit karein".
+ - Photo (auto chhoti ho jaati hai), Video (50 MB tak), Audio/aapki awaaz (50 MB tak) chun sakte hain. Sab optional hai.
+ - Audio upload ho to padhne wale audio player se sunenge; na ho to "Kahani sunein" wali computer awaaz chalegi.
+ - Video bada ho to phone mein compress karke daalein (Supabase free plan mein 50 MB limit hai).

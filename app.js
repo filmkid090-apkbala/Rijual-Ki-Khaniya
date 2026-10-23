@@ -1,14 +1,22 @@
 const $ = id => document.getElementById(id);
-let supabaseClient = null, stories = [], currentId = null, editingId = null, isAdmin = false, busy = false;
+const BUCKET = 'story-media';
+const MAX_MB = { image: 10, video: 50, audio: 50 };
+let supabaseClient = null, stories = [], currentId = null, editingId = null, isAdmin = false, busy = false, hasMediaCols = true;
 const config = window.APP_CONFIG || {};
 const configured = config.SUPABASE_URL && !config.SUPABASE_URL.includes("PASTE_") &&
   config.SUPABASE_PUBLISHABLE_KEY && !config.SUPABASE_PUBLISHABLE_KEY.includes("PASTE_") &&
   config.ADMIN_EMAIL && !config.ADMIN_EMAIL.includes("PASTE_");
+const COLS_FULL = 'id,title,content,emoji,category,image_url,video_url,audio_url,created_at';
+const COLS_BASIC = 'id,title,content,created_at';
 
 function esc(s){return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function show(section){['home','reader','editor'].forEach(id=>$(id).classList.toggle('hidden',id!==section));window.scrollTo({top:0,behavior:'smooth'})}
-function setAdminUI(){document.querySelectorAll('.admin-only').forEach(el=>el.classList.toggle('hidden',!isAdmin));$('adminLoginBtn').classList.toggle('hidden',isAdmin);$('adminLogoutBtn').classList.toggle('hidden',!isAdmin)}
-function fromDb(row){return {id:String(row.id),title:row.title,text:row.content,emoji:'📖',category:'हिंदी कहानी'}}
+function setAdminUI(){
+  document.querySelectorAll('.admin-only').forEach(el=>el.classList.toggle('hidden',!isAdmin));
+  $('adminLogoutBtn').classList.toggle('hidden',!isAdmin);
+  $('setupWarn').classList.toggle('hidden',!(isAdmin&&!hasMediaCols));
+}
+function fromDb(r){return {id:String(r.id),title:r.title,text:r.content,emoji:r.emoji||'📖',category:r.category||'हिंदी कहानी',image:r.image_url||'',video:r.video_url||'',audio:r.audio_url||''}}
 
 async function checkIsAdmin(userId){
   const {data,error}=await supabaseClient.from('admins').select('user_id').eq('user_id',userId).maybeSingle();
@@ -19,22 +27,52 @@ async function checkIsAdmin(userId){
 async function loadStories(){
   $('cards').innerHTML='<p class="muted">कहानियाँ लोड हो रही हैं…</p>';
   if(!configured){$('cards').innerHTML='<p>वेबसाइट सेटअप पूरा नहीं हुआ है। Admin को config.js में Supabase की जानकारी भरनी होगी।</p>';return}
-  const {data,error}=await supabaseClient.from('stories').select('id,title,content,created_at').order('created_at',{ascending:false});
-  if(error){console.error(error);$('cards').innerHTML='<p>कहानियाँ लोड नहीं हुईं। इंटरनेट और Supabase की policies/table जाँचें।</p>';return}
-  stories=(data||[]).map(fromDb);
+  let res=await supabaseClient.from('stories').select(hasMediaCols?COLS_FULL:COLS_BASIC).order('created_at',{ascending:false});
+  // अगर नए columns (emoji/image/video/audio) अभी database में नहीं हैं, तो पुराने तरीके से चलाओ
+  if(res.error&&hasMediaCols&&/column|schema cache/i.test(res.error.message||'')){
+    hasMediaCols=false;setAdminUI();
+    res=await supabaseClient.from('stories').select(COLS_BASIC).order('created_at',{ascending:false});
+  }
+  if(res.error){console.error(res.error);$('cards').innerHTML='<p>कहानियाँ लोड नहीं हुईं। इंटरनेट और Supabase की policies/table जाँचें।</p>';return}
+  stories=(res.data||[]).map(fromDb);
   render();
 }
 function render(){
   $('count').textContent=stories.length+' कहानियाँ';
-  if(!stories.length){$('cards').innerHTML='<p class="muted">अभी कोई कहानी नहीं है। Admin login करके पहली कहानी जोड़ सकता है।</p>';return}
-  $('cards').innerHTML=stories.map(s=>`<button class="storycard" data-id="${esc(s.id)}"><span class="emoji">${esc(s.emoji)}</span><strong>${esc(s.title)}</strong><small>${esc(s.category)} · पढ़ें और सुनें →</small></button>`).join('');
+  if(!stories.length){$('cards').innerHTML='<p class="muted">अभी कोई कहानी नहीं है। जल्द ही नई कहानियाँ आएँगी!</p>';return}
+  $('cards').innerHTML=stories.map(s=>{
+    const top=s.image?`<img class="thumb" loading="lazy" alt="" src="${esc(s.image)}">`:`<span class="emoji">${esc(s.emoji)}</span>`;
+    const badges=(s.video?'🎬 ':'')+(s.audio?'🎧 ':'');
+    return `<button class="storycard" data-id="${esc(s.id)}">${top}<strong>${esc(s.title)}</strong><small>${badges}${esc(s.category)} · पढ़ें और सुनें →</small></button>`;
+  }).join('');
   document.querySelectorAll('.storycard').forEach(b=>b.onclick=()=>openStory(b.dataset.id));
 }
-function openStory(id){const s=stories.find(x=>x.id===String(id));if(!s)return;currentId=s.id;$('readEmoji').textContent=s.emoji;$('readTitle').textContent=s.title;$('readMeta').textContent=s.category;$('readText').textContent=s.text;show('reader')}
 
-/* ---------- आवाज़ (Text-to-Speech) ---------- */
+/* ---------- कहानी खोलना ---------- */
+function stopMedia(){document.querySelectorAll('#reader audio,#reader video').forEach(m=>{try{m.pause()}catch(_){}})}
+function openStory(id){
+  const s=stories.find(x=>x.id===String(id));if(!s)return;
+  currentId=s.id;stopMedia();
+  const art=$('readEmoji');art.textContent='';
+  if(s.image){const im=document.createElement('img');im.alt=s.title;im.src=s.image;art.appendChild(im)}else art.textContent=s.emoji;
+  $('readTitle').textContent=s.title;$('readMeta').textContent=s.category;$('readText').textContent=s.text;
+  const a=$('readAudio'),v=$('readVideo');a.textContent='';v.textContent='';
+  if(s.audio){
+    const l=document.createElement('div');l.className='lbl';l.textContent='🎧 कहानी की आवाज़ सुनें';
+    const el=document.createElement('audio');el.controls=true;el.preload='none';el.src=s.audio;
+    a.append(l,el);a.classList.remove('hidden');
+  }else a.classList.add('hidden');
+  if(s.video){
+    const l=document.createElement('div');l.className='lbl';l.textContent='🎬 वीडियो देखें';
+    const el=document.createElement('video');el.controls=true;el.playsInline=true;el.preload='metadata';el.src=s.video;
+    if(s.image)el.poster=s.image;
+    v.append(l,el);v.classList.remove('hidden');
+  }else v.classList.add('hidden');
+  show('reader');
+}
+
+/* ---------- आवाज़ (Text-to-Speech, अगर ऑडियो अपलोड नहीं है) ---------- */
 function stopSpeech(){if('speechSynthesis'in window)window.speechSynthesis.cancel()}
-// लंबी कहानी को छोटे टुकड़ों में बाँटते हैं, वरना कई मोबाइल ब्राउज़र बीच में आवाज़ बंद कर देते हैं
 function chunkText(t,max=180){
   const parts=t.split(/(?<=[।.!?\n])\s*/).filter(Boolean),out=[];let cur='';
   for(const p of parts){
@@ -46,7 +84,7 @@ function chunkText(t,max=180){
 function speak(){
   const s=stories.find(x=>x.id===currentId);if(!s)return;
   if(!('speechSynthesis'in window)){alert('इस ब्राउज़र में आवाज़ उपलब्ध नहीं है।');return}
-  stopSpeech();
+  stopSpeech();stopMedia();
   const hi=speechSynthesis.getVoices().find(v=>/^hi(-|_|$)/i.test(v.lang));
   let warned=false;
   chunkText(s.title+'. '+s.text).forEach(part=>{
@@ -58,21 +96,73 @@ function speak(){
 }
 
 /* ---------- Editor ---------- */
+const KINDS=['image','video','audio'];
+function resetFileInputs(s){
+  KINDS.forEach(k=>{
+    $(k+'Input').value='';$(k+'Rm').checked=false;
+    const has=!!(s&&s[k]);
+    $(k+'Now').textContent=has?'✅ पहले से अपलोड है। नई फ़ाइल चुनेंगे तो बदल जाएगी।':'अभी कुछ अपलोड नहीं है (ज़रूरी नहीं)';
+    $(k+'RmWrap').classList.toggle('hidden',!has);
+  });
+  const p=$('imagePrev');p.classList.toggle('hidden',!(s&&s.image));if(s&&s.image)p.src=s.image;
+  $('saveProgress').classList.add('hidden');
+}
 function openEditor(id=null){
   if(!isAdmin){alert('कहानी बदलने के लिए Admin login ज़रूरी है।');return}
-  stopSpeech();editingId=id?String(id):null;const s=stories.find(x=>x.id===editingId);
+  stopSpeech();stopMedia();editingId=id?String(id):null;const s=stories.find(x=>x.id===editingId);
   $('editorHeading').textContent=s?'कहानी Edit करें':'नई कहानी जोड़ें';
-  $('titleInput').value=s?.title||'';$('textInput').value=s?.text||'';$('deleteBtn').hidden=!s;show('editor');
+  $('titleInput').value=s?.title||'';$('emojiInput').value=s?.emoji||'📖';$('categoryInput').value=(s&&s.category!=='हिंदी कहानी')?s.category:'';
+  $('textInput').value=s?.text||'';$('deleteBtn').hidden=!s;resetFileInputs(s);show('editor');
+}
+$('imageInput').onchange=()=>{
+  const f=$('imageInput').files[0],p=$('imagePrev');
+  if(f){p.src=URL.createObjectURL(f);p.classList.remove('hidden')}
+};
+
+/* ---------- Media upload ---------- */
+function compressImage(file,max=1280,q=.82){
+  return new Promise(res=>{
+    if(!file.type.startsWith('image/')||file.type==='image/gif'||file.type==='image/svg+xml')return res(file);
+    const img=new Image(),u=URL.createObjectURL(file);
+    img.onload=()=>{
+      const r=Math.min(1,max/Math.max(img.width,img.height)),w=Math.round(img.width*r),h=Math.round(img.height*r);
+      const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
+      c.toBlob(b=>{URL.revokeObjectURL(u);res(b?new File([b],'image.jpg',{type:'image/jpeg'}):file)},'image/jpeg',q);
+    };
+    img.onerror=()=>{URL.revokeObjectURL(u);res(file)};
+    img.src=u;
+  });
+}
+async function uploadFile(file,kind){
+  const ext=((file.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5))||'bin';
+  const path=`${kind}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const {error}=await supabaseClient.storage.from(BUCKET).upload(path,file,{cacheControl:'31536000',upsert:false,contentType:file.type||undefined});
+  if(error)throw error;
+  return supabaseClient.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+}
+function pathFromUrl(url){
+  const key='/'+BUCKET+'/',i=(url||'').indexOf(key);
+  return i<0?null:decodeURIComponent(url.slice(i+key.length).split('?')[0]);
+}
+async function removeFiles(urls){
+  const paths=urls.map(pathFromUrl).filter(Boolean);
+  if(!paths.length)return;
+  try{await supabaseClient.storage.from(BUCKET).remove(paths)}catch(e){console.error(e)}
 }
 
-/* ---------- Admin login (password छिपा हुआ रहता है) ---------- */
+/* ---------- Admin login (छिपा हुआ) ---------- */
 function openLogin(){
   if(!configured){alert('पहले config.js में Supabase Project URL, Publishable key और Admin email भरें।');return}
   $('loginEmail').value=config.ADMIN_EMAIL;$('loginPass').value='';$('loginErr').textContent='';
   $('loginModal').classList.remove('hidden');setTimeout(()=>$('loginPass').focus(),50);
 }
-function closeLogin(){$('loginModal').classList.add('hidden');$('loginPass').value=''}
-$('adminLoginBtn').onclick=openLogin;
+function closeLogin(){$('loginModal').classList.add('hidden');$('loginPass').value='';if(location.hash==='#admin')history.replaceState(null,'',location.pathname+location.search)}
+// गुप्त तरीका: ऊपर "Rijual Ki Khaniya" नाम पर 5 बार जल्दी-जल्दी टैप करें, या वेबसाइट के पते के आख़िर में #admin जोड़ें
+let taps=0,tapTimer=null;
+$('brand').onclick=()=>{
+  taps++;clearTimeout(tapTimer);tapTimer=setTimeout(()=>taps=0,2500);
+  if(taps>=5){taps=0;if(!isAdmin)openLogin()}
+};
 $('loginCancel').onclick=closeLogin;
 $('loginModal').addEventListener('click',e=>{if(e.target.id==='loginModal')closeLogin()});
 $('loginForm').onsubmit=async e=>{
@@ -95,7 +185,7 @@ $('loginForm').onsubmit=async e=>{
     const ok=await checkIsAdmin(data.user.id);
     if(ok!==true){
       await supabaseClient.auth.signOut();
-      if(ok===null)fail('Login हो गया, पर admins table पढ़ी नहीं जा सकी। Table और SELECT policy जाँचें।',window.__adminErr||'');
+      if(ok===null)fail('Login हो गया, पर admins table पढ़ी नहीं जा सकी। Table और SELECT policy जाँचें (setup_media.sql चलाएँ)।',window.__adminErr||'');
       else fail('Login सही है, पर यह user admins table में नहीं है। Supabase में public.admins में user_id = '+data.user.id+' डालें।');
       return;
     }
@@ -105,43 +195,75 @@ $('loginForm').onsubmit=async e=>{
 };
 $('adminLogoutBtn').onclick=async()=>{await supabaseClient.auth.signOut();isAdmin=false;setAdminUI();show('home');await loadStories()};
 
-$('allBtn').onclick=()=>{stopSpeech();show('home')};
+$('allBtn').onclick=()=>{stopSpeech();stopMedia();show('home')};
 $('addBtn').onclick=()=>openEditor();
-$('backBtn').onclick=()=>{stopSpeech();show('home')};
+$('backBtn').onclick=()=>{stopSpeech();stopMedia();show('home')};
 $('cancelEditBtn').onclick=()=>currentId?show('reader'):show('home');
 $('editCurrentBtn').onclick=()=>openEditor(currentId);
 $('speakBtn').onclick=speak;
 $('pauseBtn').onclick=()=>window.speechSynthesis&&window.speechSynthesis.pause();
 $('resumeBtn').onclick=()=>window.speechSynthesis&&window.speechSynthesis.resume();
-$('stopBtn').onclick=stopSpeech;
+$('stopBtn').onclick=()=>{stopSpeech();stopMedia()};
 
+/* ---------- Save / Delete ---------- */
 $('saveBtn').onclick=async()=>{
   if(!isAdmin){alert('Admin login ज़रूरी है।');return}
   if(busy)return;
   const title=$('titleInput').value.trim(),content=$('textInput').value.trim();
   if(!title||!content){alert('कहानी का नाम और टेक्स्ट ज़रूर भरें।');return}
+  const s=editingId?stories.find(x=>x.id===editingId):null;
+  const picked={};KINDS.forEach(k=>{const f=$(k+'Input').files[0];if(f)picked[k]=f});
+  if(!hasMediaCols&&Object.keys(picked).length){alert('फोटो/वीडियो/ऑडियो के लिए पहले Supabase में setup_media.sql एक बार चलाएँ।');return}
+  for(const k of KINDS){
+    if(picked[k]&&picked[k].size>MAX_MB[k]*1024*1024*(k==='image'?4:1)){alert(`${k==='image'?'फोटो':k==='video'?'वीडियो':'ऑडियो'} बहुत बड़ा है। ज़्यादा से ज़्यादा ${MAX_MB[k]} MB चुनें।`);return}
+  }
   busy=true;$('saveBtn').disabled=true;
+  const prog=$('saveProgress');
+  const uploaded=[],toRemove=[];
   try{
+    const payload={title,content};
+    if(hasMediaCols){payload.emoji=$('emojiInput').value.trim()||'📖';payload.category=$('categoryInput').value.trim()||null}
+    for(const k of KINDS){
+      const col=k+'_url';
+      if(picked[k]){
+        prog.textContent='⏳ '+(k==='image'?'फोटो':k==='video'?'वीडियो':'ऑडियो')+' अपलोड हो रहा है… कृपया रुकें (बड़ी फ़ाइल में समय लगता है)';prog.classList.remove('hidden');
+        let f=picked[k];if(k==='image')f=await compressImage(f);
+        if(f.size>MAX_MB[k]*1024*1024){throw new Error('फ़ाइल बहुत बड़ी है')}
+        const url=await uploadFile(f,k);uploaded.push(url);payload[col]=url;
+        if(s&&s[k])toRemove.push(s[k]);
+      }else if($(k+'Rm').checked&&s&&s[k]){payload[col]=null;toRemove.push(s[k])}
+    }
+    prog.textContent='⏳ कहानी सेव हो रही है…';prog.classList.remove('hidden');
     let result,newId=editingId;
     if(editingId){
-      result=await supabaseClient.from('stories').update({title,content}).eq('id',editingId).select('id');
-      if(!result.error&&(!result.data||!result.data.length)){alert('सेव नहीं हुआ: permission नहीं मिली। Supabase की admin policies जाँचें।');return}
+      result=await supabaseClient.from('stories').update(payload).eq('id',editingId).select('id');
+      if(!result.error&&(!result.data||!result.data.length)){await removeFiles(uploaded);alert('सेव नहीं हुआ: permission नहीं मिली। setup_media.sql चलाकर policies जाँचें।');return}
     }else{
-      result=await supabaseClient.from('stories').insert({title,content}).select('id').single();
+      result=await supabaseClient.from('stories').insert(payload).select('id').single();
       if(!result.error)newId=String(result.data.id);
     }
-    if(result.error){console.error(result.error);alert('कहानी सेव नहीं हुई। Database permissions जाँचें।');return}
+    if(result.error){
+      console.error(result.error);await removeFiles(uploaded);
+      alert('कहानी सेव नहीं हुई।\n'+(result.error.message||'')+'\n\nsetup_media.sql एक बार चलाकर देखें।');return;
+    }
+    await removeFiles(toRemove);
     await loadStories();
-    if(newId&&stories.some(s=>s.id===String(newId)))openStory(newId);else show('home');
-  }catch(err){console.error(err);alert('नेटवर्क की दिक्कत है। फिर कोशिश करें।')}
-  finally{busy=false;$('saveBtn').disabled=false}
+    if(newId&&stories.some(x=>x.id===String(newId)))openStory(newId);else show('home');
+  }catch(err){
+    console.error(err);await removeFiles(uploaded);
+    const m=(err&&err.message)||'';
+    alert('सेव नहीं हो पाया।\n'+(/row-level|policy|unauthorized|403/i.test(m)?'Storage की permission नहीं मिली — setup_media.sql चलाएँ।':/not found|bucket/i.test(m)?'Storage bucket "story-media" नहीं मिला — setup_media.sql चलाएँ।':m||'नेटवर्क जाँचें और फिर कोशिश करें।'));
+  }
+  finally{busy=false;$('saveBtn').disabled=false;prog.classList.add('hidden')}
 };
 $('deleteBtn').onclick=async()=>{
   if(!isAdmin||!editingId||busy)return;if(!confirm('क्या यह कहानी हटानी है?'))return;
   busy=true;
   try{
+    const s=stories.find(x=>x.id===editingId);
     const {data,error}=await supabaseClient.from('stories').delete().eq('id',editingId).select('id');
     if(error||!data||!data.length){alert('कहानी हट नहीं पाई। Admin permissions जाँचें।');return}
+    if(s)await removeFiles([s.image,s.video,s.audio].filter(Boolean));
     currentId=null;editingId=null;await loadStories();show('home');
   }catch(err){console.error(err);alert('नेटवर्क की दिक्कत है। फिर कोशिश करें।')}
   finally{busy=false}
@@ -153,8 +275,7 @@ $('deleteBtn').onclick=async()=>{
   if(!configured){$('cards').innerHTML='<p>Setup बाकी है। config.js में Supabase URL, Publishable key और Admin email भरने के बाद वेबसाइट चलने लगेगी।</p>';return}
   if(!window.supabase){$('cards').innerHTML='<p>Supabase library load नहीं हुई। इंटरनेट कनेक्शन जाँचें।</p>';return}
   supabaseClient=window.supabase.createClient(config.SUPABASE_URL,config.SUPABASE_PUBLISHABLE_KEY);
-  // Session खत्म/logout होने पर Admin बटन अपने-आप बंद हो जाएँ
-  supabaseClient.auth.onAuthStateChange((event)=>{
+  supabaseClient.auth.onAuthStateChange(event=>{
     if(event==='SIGNED_OUT'&&isAdmin){isAdmin=false;setAdminUI();if(!$('editor').classList.contains('hidden'))show('home')}
   });
   try{
@@ -166,4 +287,5 @@ $('deleteBtn').onclick=async()=>{
     }
   }catch(err){console.error(err)}
   await loadStories();
+  if(location.hash==='#admin'&&!isAdmin)openLogin();
 })();
