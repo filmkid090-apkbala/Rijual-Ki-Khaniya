@@ -30,3 +30,11 @@ SECURITY
 - Readers must not be able to insert/update/delete stories even if they inspect the website.
 - Use only the publishable key in browser code. Never use secret/service_role keys.
 - A password-only UI works by signing in against the configured admin email. Protect access to the email account and password.
+
+UPDATE NOTES (fixes)
+- Admin password ab chhupa hua (****) modal mein poochha jata hai (pehle prompt() mein dikhta tha).
+- Naya story save karne ke baad wahi story khulti hai (pehle title se dhundhta tha).
+- Edit/Delete ab check karte hain ki permission mili ya nahi; chup-chaap fail nahi hota.
+- Lambi kahani ki awaaz beech mein nahi ruki (text chhote tukdon mein bol-ta hai).
+- Emoji/Shreni wale khaali fields hata diye (database mein sirf title + content save hota hai).
+- index.html mein manifest.json ka link joda gaya hai. Agar aapki repo ki manifest file ka naam alag hai, to index.html mein line 7 badal lein.
