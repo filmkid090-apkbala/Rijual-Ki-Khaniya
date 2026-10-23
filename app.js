@@ -12,7 +12,7 @@ function fromDb(row){return {id:String(row.id),title:row.title,text:row.content,
 
 async function checkIsAdmin(userId){
   const {data,error}=await supabaseClient.from('admins').select('user_id').eq('user_id',userId).maybeSingle();
-  if(error){console.error(error);return null}
+  if(error){console.error(error);window.__adminErr=error.message;return null}
   return !!data;
 }
 
@@ -78,13 +78,29 @@ $('loginModal').addEventListener('click',e=>{if(e.target.id==='loginModal')close
 $('loginForm').onsubmit=async e=>{
   e.preventDefault();
   const password=$('loginPass').value;if(!password)return;
-  const btn=$('loginSubmit');btn.disabled=true;btn.textContent='जाँच रहे हैं…';$('loginErr').textContent='';
+  const btn=$('loginSubmit'),errBox=$('loginErr');
+  const fail=(hi,tech)=>{errBox.innerHTML=esc(hi)+(tech?'<br><small>Detail: '+esc(tech)+'</small>':'')};
+  btn.disabled=true;btn.textContent='जाँच रहे हैं…';errBox.textContent='';
   try{
-    const {data,error}=await supabaseClient.auth.signInWithPassword({email:config.ADMIN_EMAIL,password});
-    if(error){$('loginErr').textContent='Login नहीं हुआ। Password जाँचें और फिर कोशिश करें।';return}
-    if((await checkIsAdmin(data.user.id))!==true){await supabaseClient.auth.signOut();$('loginErr').textContent='यह अकाउंट Admin नहीं है (admins table जाँचें)।';return}
+    if(!supabaseClient){fail('Supabase शुरू नहीं हुआ। पेज रीफ़्रेश करें / इंटरनेट जाँचें।','supabase library या config समस्या');return}
+    const {data,error}=await supabaseClient.auth.signInWithPassword({email:config.ADMIN_EMAIL.trim(),password});
+    if(error){
+      const m=(error.message||'').toLowerCase();
+      if(m.includes('invalid login'))fail('Email या password गलत है। config.js का ADMIN_EMAIL वही होना चाहिए जिससे Supabase Auth में user बनाया था।',error.message);
+      else if(m.includes('confirm'))fail('Email confirm नहीं हुआ। Supabase → Authentication → Users में user को Confirm करें।',error.message);
+      else if(m.includes('api key')||m.includes('apikey')||error.status===401)fail('Publishable key गलत है। config.js में सही key डालें।',error.message);
+      else fail('Login नहीं हुआ।',error.message);
+      return;
+    }
+    const ok=await checkIsAdmin(data.user.id);
+    if(ok!==true){
+      await supabaseClient.auth.signOut();
+      if(ok===null)fail('Login हो गया, पर admins table पढ़ी नहीं जा सकी। Table और SELECT policy जाँचें।',window.__adminErr||'');
+      else fail('Login सही है, पर यह user admins table में नहीं है। Supabase में public.admins में user_id = '+data.user.id+' डालें।');
+      return;
+    }
     isAdmin=true;setAdminUI();closeLogin();await loadStories();
-  }catch(err){console.error(err);$('loginErr').textContent='नेटवर्क की दिक्कत है। इंटरनेट जाँचकर फिर कोशिश करें।'}
+  }catch(err){console.error(err);fail('गड़बड़ हुई।',err&&err.message)}
   finally{btn.disabled=false;btn.textContent='Login'}
 };
 $('adminLogoutBtn').onclick=async()=>{await supabaseClient.auth.signOut();isAdmin=false;setAdminUI();show('home');await loadStories()};
