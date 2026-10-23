@@ -1,18 +1,32 @@
-नन्ही कहानियाँ — शुरुआत कैसे करें
+RIJUAL KI KHANIYA — Admin Login update
+======================================
 
-इस फ़ोल्डर में एक offline-friendly Hindi story app है:
-- index.html: ऐप की स्क्रीन
-- app.js: कहानियाँ, edit/save और Hindi voice narration
-- manifest.json + sw.js: installable/offline web app support
-- icon.svg: ऐप आइकन
+IMPORTANT
+- This version uses Supabase Auth and database Row Level Security.
+- Readers can read/listen without logging in.
+- Admin login screen asks only for a password. The configured admin email is stored in config.js.
+- Never put a Supabase secret/service_role key in config.js.
 
-महत्वपूर्ण:
-1. ZIP को extract करें।
-2. PWA की सही offline/install सुविधा के लिए इसे HTTPS hosting पर एक बार खोलना ज़रूरी है। केवल फ़ाइल को सीधे खोलने पर service worker काम नहीं करता।
-3. इस ZIP को मुफ्त HTTPS hosting (जैसे GitHub Pages) पर publish करने के बाद Android Chrome में खोलें और menu से "Install app" या "Add to Home screen" चुनें।
-4. पहली बार ऑनलाइन खोलें ताकि app files cache हो जाएँ। फिर app offline खुल सकता है।
-5. Hindi voice फोन के Text-to-Speech engine पर निर्भर है। अगर offline Hindi voice नहीं है तो फोन की Settings में Text-to-Speech / Speech Services में Hindi voice डाउनलोड करें। कुछ फोन/ब्राउज़र में यह सुविधा अलग तरह से काम कर सकती है।
-6. कहानियाँ फोन के browser storage में सेव होती हैं। ऐप का data clear करने से वे हट सकती हैं, इसलिए Backup बटन से JSON backup export करते रहें।
-7. Backup JSON को Edit करने के लिए ऐप के अंदर Add/Edit विकल्प इस्तेमाल करें; Import से backup restore करें।
+SETUP
+1. Open config.js.
+2. Replace:
+   PASTE_YOUR_SUPABASE_PROJECT_URL_HERE
+   PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE
+   PASTE_YOUR_ADMIN_EMAIL_HERE
+   with your project's URL, publishable key, and the same email you used to create the Supabase Auth user.
+3. Save config.js.
+4. Upload/replace index.html, app.js, config.js, seed_stories.sql, and README in your GitHub repository. Keep any existing manifest/service worker/icon files if your repo has them.
+5. In Supabase SQL Editor, run seed_stories.sql ONCE if you want the four starter stories. If you have your own story text saved only in the old browser's local storage, it will not automatically transfer; add it again through Admin or insert it into Supabase.
+6. Ensure the Admin user UUID is already present in public.admins (you said you added it).
+7. Test the website in a private/incognito window: stories should show without login; Admin login should ask only for password.
 
-यह APK नहीं है; यह installable PWA है। Android APK में बदलने के लिए अलग packaging/signing step चाहिए।
+DATABASE
+The app expects public.stories columns: id, title, content, created_at.
+It only stores title and story text; emoji/category are shown with defaults.
+The app expects public.admins(user_id) and the policies previously created.
+
+SECURITY
+- Client-side buttons are not the security boundary; Supabase RLS policies are.
+- Readers must not be able to insert/update/delete stories even if they inspect the website.
+- Use only the publishable key in browser code. Never use secret/service_role keys.
+- A password-only UI works by signing in against the configured admin email. Protect access to the email account and password.

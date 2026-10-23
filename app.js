@@ -1,27 +1,78 @@
-const KEY='nanhi-kahaniyan-v1';
-const starter=[
-{id:'ramu',title:'ईमानदार रामू और तीन कुल्हाड़ियाँ',emoji:'🪓',category:'ईमानदारी की सीख',text:'सुंदरपुर गाँव में रामू नाम का एक मेहनती लकड़हारा रहता था। वह रोज़ जंगल के पास नदी किनारे लकड़ी काटने जाता था।\\n\\nएक दिन रामू पेड़ की लकड़ी काट रहा था कि अचानक उसकी लोहे की कुल्हाड़ी हाथ से फिसली और छपाक से नदी में गिर गई। रामू उदास होकर बोला, “अरे! अब मैं लकड़ी कैसे काटूँगा?”\\n\\nतभी नदी में चमकदार रोशनी हुई और एक जादुई बूढ़े बाबा प्रकट हुए। उन्होंने सोने की कुल्हाड़ी दिखाई और पूछा, “क्या यह तुम्हारी है?” रामू बोला, “नहीं बाबा, मेरी कुल्हाड़ी तो लोहे की थी।”\\n\\nफिर बाबा चाँदी की कुल्हाड़ी लाए। रामू ने फिर सच-सच कहा, “यह भी मेरी नहीं है।” आखिर में बाबा उसकी पुरानी लोहे की कुल्हाड़ी लाए। रामू खुशी से बोला, “हाँ! यही मेरी कुल्हाड़ी है।”\\n\\nरामू की ईमानदारी से खुश होकर बाबा ने उसे तीनों कुल्हाड़ियाँ इनाम में दे दीं। रामू घर लौटा और बोला, “आज तो मेरी मेहनत का बोनस भी मिल गया!”\\n\\nसीख: हमेशा ईमानदार रहना चाहिए।'},
-{id:'lion',title:'शेर और चतुर खरगोश',emoji:'🦁',category:'पंचतंत्र जैसी कहानी',text:'एक जंगल में एक घमंडी शेर रहता था। वह रोज़ जानवरों को डराता था। एक दिन एक छोटे खरगोश की बारी आई। खरगोश ने अपनी बुद्धि से शेर को कुएँ में उसकी परछाईं दिखाई। शेर ने समझा कि दूसरा शेर है और कुएँ में कूद पड़ा। सारे जानवर खुश हो गए।\\n\\nसीख: बुद्धि ताकत से बड़ी होती है।'},
-{id:'tortoise',title:'कछुआ और खरगोश',emoji:'🐢',category:'मेहनत की सीख',text:'खरगोश अपनी तेज़ दौड़ पर बहुत घमंड करता था। कछुए ने उसे दौड़ की चुनौती दी। दौड़ शुरू हुई तो खरगोश आगे निकलकर सो गया। कछुआ धीरे-धीरे चलता रहा और मंज़िल पर पहले पहुँच गया।\\n\\nसीख: लगातार कोशिश करने वाला सफल होता है।'},
-{id:'star',title:'नन्हा तारा',emoji:'⭐',category:'सोने से पहले',text:'आसमान में एक नन्हा तारा रहता था। उसे लगता था कि उसकी रोशनी बहुत छोटी है। एक रात उसने रास्ता भटके बच्चे को घर का रास्ता दिखाया। बच्चा सुरक्षित घर पहुँच गया। नन्हे तारे को समझ आया कि छोटी-सी मदद भी बहुत मायने रखती है।\\n\\nसीख: हर किसी के अंदर खास रोशनी होती है।'}
-];
-let stories=load(), currentId=null, editingId=null, deferredPrompt=null;
-function load(){try{const v=JSON.parse(localStorage.getItem(KEY));return Array.isArray(v)&&v.length?v:starter.slice()}catch{return starter.slice()}}
-function persist(){localStorage.setItem(KEY,JSON.stringify(stories))}
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-const $=id=>document.getElementById(id);
+const $ = id => document.getElementById(id);
+let supabaseClient = null, stories = [], currentId = null, editingId = null, isAdmin = false, deferredPrompt = null;
+const config = window.APP_CONFIG || {};
+const configured = config.SUPABASE_URL && !config.SUPABASE_URL.includes("PASTE_") &&
+  config.SUPABASE_PUBLISHABLE_KEY && !config.SUPABASE_PUBLISHABLE_KEY.includes("PASTE_") &&
+  config.ADMIN_EMAIL && !config.ADMIN_EMAIL.includes("PASTE_");
+
+function esc(s){return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function show(section){['home','reader','editor'].forEach(id=>$(id).classList.toggle('hidden',id!==section));window.scrollTo({top:0,behavior:'smooth'})}
-function render(){ $('count').textContent=stories.length+' कहानियाँ'; $('cards').innerHTML=stories.map(s=>`<button class="storycard" data-id="${esc(s.id)}"><span class="emoji">${esc(s.emoji||'📖')}</span><strong>${esc(s.title)}</strong><small>${esc(s.category||'हिंदी कहानी')} · पढ़ें और सुनें →</small></button>`).join('');document.querySelectorAll('.storycard').forEach(b=>b.onclick=()=>openStory(b.dataset.id))}
+function setAdminUI(){document.querySelectorAll('.admin-only').forEach(el=>el.classList.toggle('hidden',!isAdmin));$('adminLoginBtn').classList.toggle('hidden',isAdmin);$('adminLogoutBtn').classList.toggle('hidden',!isAdmin)}
+function fromDb(row){return {id:row.id,title:row.title,text:row.content,emoji:row.emoji||'📖',category:row.category||'हिंदी कहानी'}}
+async function loadStories(){
+  $('cards').innerHTML='<p class="muted">कहानियाँ लोड हो रही हैं…</p>';
+  if(!configured){$('cards').innerHTML='<p>वेबसाइट सेटअप पूरा नहीं हुआ है। Admin को config.js में Supabase की जानकारी भरनी होगी।</p>';return}
+  const {data,error}=await supabaseClient.from('stories').select('id,title,content,created_at').order('created_at',{ascending:false});
+  if(error){console.error(error);$('cards').innerHTML='<p>कहानियाँ लोड नहीं हुईं। Supabase में policies और table की जाँच करें।</p>';return}
+  stories=(data||[]).map(fromDb);
+  render();
+}
+function render(){
+  $('count').textContent=stories.length+' कहानियाँ';
+  if(!stories.length){$('cards').innerHTML='<p class="muted">अभी कोई कहानी नहीं है। Admin login करके पहली कहानी जोड़ सकता है।</p>';return}
+  $('cards').innerHTML=stories.map(s=>`<button class="storycard" data-id="${esc(s.id)}"><span class="emoji">${esc(s.emoji||'📖')}</span><strong>${esc(s.title)}</strong><small>${esc(s.category||'हिंदी कहानी')} · पढ़ें और सुनें →</small></button>`).join('');
+  document.querySelectorAll('.storycard').forEach(b=>b.onclick=()=>openStory(b.dataset.id));
+}
 function openStory(id){const s=stories.find(x=>x.id===id);if(!s)return;currentId=id;$('readEmoji').textContent=s.emoji||'📖';$('readTitle').textContent=s.title;$('readMeta').textContent=s.category||'हिंदी कहानी';$('readText').textContent=s.text;show('reader')}
 function stopSpeech(){if('speechSynthesis'in window)window.speechSynthesis.cancel()}
-function speak(){const s=stories.find(x=>x.id===currentId);if(!s)return;if(!('speechSynthesis'in window)){alert('इस ब्राउज़र में आवाज़ उपलब्ध नहीं है। Android Chrome में खोलकर देखें।');return}stopSpeech();const u=new SpeechSynthesisUtterance(s.title+'. '+s.text);u.lang='hi-IN';u.rate=.88;u.pitch=1.05;const voices=speechSynthesis.getVoices();const hi=voices.find(v=>/^hi(-|$)/i.test(v.lang));if(hi)u.voice=hi;u.onerror=()=>alert('हिंदी आवाज़ उपलब्ध नहीं लग रही। फोन की Text-to-Speech settings में Hindi voice डाउनलोड करें।');speechSynthesis.speak(u)}
-function openEditor(id=null){stopSpeech();editingId=id;const s=stories.find(x=>x.id===id);$('editorHeading').textContent=s?'कहानी Edit करें':'नई कहानी जोड़ें';$('titleInput').value=s?.title||'';$('emojiInput').value=s?.emoji||'📖';$('categoryInput').value=s?.category||'';$('textInput').value=s?.text||'';$('deleteBtn').hidden=!s;show('editor')}
+function speak(){const s=stories.find(x=>x.id===currentId);if(!s)return;if(!('speechSynthesis'in window)){alert('इस ब्राउज़र में आवाज़ उपलब्ध नहीं है।');return}stopSpeech();const u=new SpeechSynthesisUtterance(s.title+'. '+s.text);u.lang='hi-IN';u.rate=.88;u.pitch=1.05;const hi=speechSynthesis.getVoices().find(v=>/^hi(-|$)/i.test(v.lang));if(hi)u.voice=hi;u.onerror=()=>alert('Hindi voice उपलब्ध नहीं लग रही। डिवाइस की Text-to-Speech settings में Hindi voice देखें।');speechSynthesis.speak(u)}
+async function openEditor(id=null){
+ if(!isAdmin){alert('कहानी बदलने के लिए Admin login ज़रूरी है।');return}
+ stopSpeech();editingId=id;const s=stories.find(x=>x.id===id);
+ $('editorHeading').textContent=s?'कहानी Edit करें':'नई कहानी जोड़ें';$('titleInput').value=s?.title||'';$('emojiInput').value=s?.emoji||'📖';$('categoryInput').value=s?.category||'';$('textInput').value=s?.text||'';$('deleteBtn').hidden=!s;show('editor');
+}
+$('adminLoginBtn').onclick=async()=>{
+ if(!configured){alert('पहले config.js में Supabase Project URL, Publishable key और Admin email भरें।');return}
+ const password=prompt('Admin password डालें:');if(password===null)return;
+ const {data,error}=await supabaseClient.auth.signInWithPassword({email:config.ADMIN_EMAIL,password});
+ if(error){alert('Login नहीं हुआ। Password जाँचें और फिर कोशिश करें।');return}
+ const {data:adminRow,error:adminErr}=await supabaseClient.from('admins').select('user_id').eq('user_id',data.user.id).maybeSingle();
+ if(adminErr||!adminRow){await supabaseClient.auth.signOut();alert('यह अकाउंट Admin नहीं है।');return}
+ isAdmin=true;setAdminUI();alert('Admin login सफल!');await loadStories();
+};
+$('adminLogoutBtn').onclick=async()=>{await supabaseClient.auth.signOut();isAdmin=false;setAdminUI();show('home');await loadStories()};
 $('allBtn').onclick=()=>{stopSpeech();show('home')};$('addBtn').onclick=()=>openEditor();$('backBtn').onclick=()=>{stopSpeech();show('home')};$('cancelEditBtn').onclick=()=>currentId?show('reader'):show('home');$('editCurrentBtn').onclick=()=>openEditor(currentId);
-$('speakBtn').onclick=speak;$('pauseBtn').onclick=()=>window.speechSynthesis && window.speechSynthesis.pause();$('resumeBtn').onclick=()=>window.speechSynthesis && window.speechSynthesis.resume();$('stopBtn').onclick=stopSpeech;
-$('saveBtn').onclick=()=>{const title=$('titleInput').value.trim(),text=$('textInput').value.trim();if(!title||!text){alert('कहानी का नाम और टेक्स्ट ज़रूर भरें।');return}const item={id:editingId||('story-'+Date.now()),title,emoji:$('emojiInput').value.trim()||'📖',category:$('categoryInput').value.trim()||'हिंदी कहानी',text};if(editingId){stories=stories.map(s=>s.id===editingId?item:s);currentId=item.id}else{stories.unshift(item);currentId=item.id}persist();render();openStory(item.id)};
-$('deleteBtn').onclick=()=>{if(!editingId)return;if(confirm('क्या यह कहानी हटानी है?')){stories=stories.filter(s=>s.id!==editingId);persist();currentId=null;render();show('home')}};
-$('exportBtn').onclick=()=>{const blob=new Blob([JSON.stringify(stories,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='meri-kahaniyan-backup.json';a.click();URL.revokeObjectURL(a.href)};
-$('importBtn').onclick=()=>$('importFile').click();$('importFile').onchange=async e=>{try{const parsed=JSON.parse(await e.target.files[0].text());if(!Array.isArray(parsed)||!parsed.every(s=>s.title&&s.text))throw Error();if(confirm('बैकअप की कहानियाँ मौजूदा संग्रह की जगह रखें?')){stories=parsed;persist();render();show('home')}}catch{alert('यह बैकअप फ़ाइल सही नहीं है।')}e.target.value=''};
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;$('installBtn').hidden=false});$('installBtn').onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$('installBtn').hidden=true};
-if('serviceWorker'in navigator && location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
-persist();render();
+$('speakBtn').onclick=speak;$('pauseBtn').onclick=()=>window.speechSynthesis&&window.speechSynthesis.pause();$('resumeBtn').onclick=()=>window.speechSynthesis&&window.speechSynthesis.resume();$('stopBtn').onclick=stopSpeech;
+$('saveBtn').onclick=async()=>{
+ if(!isAdmin){alert('Admin login ज़रूरी है।');return}
+ const title=$('titleInput').value.trim(),content=$('textInput').value.trim();
+ if(!title||!content){alert('कहानी का नाम और टेक्स्ट ज़रूर भरें।');return}
+ const payload={title,content};
+ let result;
+ if(editingId) result=await supabaseClient.from('stories').update(payload).eq('id',editingId);
+ else result=await supabaseClient.from('stories').insert(payload);
+ if(result.error){console.error(result.error);alert('कहानी सेव नहीं हुई। Database permissions जाँचें।');return}
+ currentId=editingId;await loadStories();
+ if(!editingId){const latest=stories.find(s=>s.title===title);currentId=latest?.id||null}
+ if(currentId)openStory(currentId);else show('home');
+};
+$('deleteBtn').onclick=async()=>{
+ if(!isAdmin||!editingId)return;if(!confirm('क्या यह कहानी हटानी है?'))return;
+ const {error}=await supabaseClient.from('stories').delete().eq('id',editingId);
+ if(error){alert('कहानी हट नहीं पाई।');return}
+ currentId=null;editingId=null;await loadStories();show('home');
+};
+$('allBtn').onclick=()=>{stopSpeech();show('home')};
+(async()=>{
+ setAdminUI();
+ if(!configured){$('cards').innerHTML='<p>Setup बाकी है। config.js में Supabase URL, Publishable key और Admin email भरने के बाद वेबसाइट चलने लगेगी।</p>';return}
+ if(!window.supabase){$('cards').innerHTML='<p>Supabase library load नहीं हुई। इंटरनेट कनेक्शन जाँचें।</p>';return}
+ supabaseClient=window.supabase.createClient(config.SUPABASE_URL,config.SUPABASE_PUBLISHABLE_KEY);
+ const {data}=await supabaseClient.auth.getSession();
+ if(data?.session){
+   const {data:adminRow}=await supabaseClient.from('admins').select('user_id').eq('user_id',data.session.user.id).maybeSingle();
+   if(adminRow){isAdmin=true;setAdminUI()}
+   else await supabaseClient.auth.signOut();
+ }
+ await loadStories();
+})();
