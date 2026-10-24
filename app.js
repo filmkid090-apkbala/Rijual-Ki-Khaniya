@@ -348,56 +348,79 @@ $('readText').addEventListener('click',e=>{
 });
 
 // ---- बोलकर पढ़ना
-function advance(spoken){
-  const n=norm(spoken);if(!n)return false;
-  let best=-1,bestScore=0;
-  for(let k=pos;k<Math.min(wordNorm.length,pos+3);k++){      // सिर्फ़ अगले 3 शब्दों में ढूँढो
-    const w=wordNorm[k];
-    const same=n.replace(/\u0902/g,'')===w.replace(/\u0902/g,'');
-    if(Math.min(n.length,w.length)<=2&&!same)continue;         // छोटे शब्द (का/की/के/था) तभी जब वही हों (में/मे चलेगा)
-    const sc=(same?1:similar(n,w))-(k-pos)*0.08;                        // पास वाले शब्द को तरजीह
-    if(sc>bestScore){bestScore=sc;best=k}
+// ---- मिलान: बच्चे की आवाज़ सुनकर ही शब्द हरे होते हैं ----
+let startPos={},restartChecked={},lastHeard=0,restartTimes=[];
+function strictSame(n,w){return n.replace(/ं/g,'')===w.replace(/ं/g,'')}
+// p से शुरू करके win शब्दों में n को ढूँढो। छोटे शब्द (≤2 अक्षर: का/की/के/था) सिर्फ़ तब जब वही हों;
+// बड़े शब्द थोड़े अलग उच्चारण/वर्तनी पर भी चलेंगे।
+function findMatch(n,p,win,thr){
+  let best=-1,bs=0;
+  for(let k=p;k<Math.min(wordNorm.length,p+win);k++){
+    const w=wordNorm[k];if(!w)continue;
+    let sc;
+    if(n.length<=2||w.length<=2){if(!strictSame(n,w)||k-p>1)continue;sc=1}   // छोटा शब्द: वही हो और बिल्कुल पास में हो
+    else sc=(strictSame(n,w)?1:similar(n,w));
+    sc-=(k-p)*0.04;
+    if(sc>bs){bs=sc;best=k}
   }
-  const need=best>pos?0.78:0.65;                               // आगे कूदने के लिए ज़्यादा पक्का मिलान
-  if(best>=0&&bestScore>=need){pos=best+1;lastProgress=Date.now();return true}
-  return false;
+  return bs>=thr?best:-1;
+}
+function alignFrom(start,words){
+  const stalled=Date.now()-lastProgress>4000;           // काफ़ी देर से रुका है तो थोड़ा ज़्यादा उदार बनो
+  const win=stalled?7:5,off=stalled?0.07:0;
+  let p=start;
+  for(const raw of words){
+    const n=norm(raw);if(!n)continue;
+    const k=findMatch(n,p,win,(0.58-off));
+    if(k>=0&&(k===p||similar(n,wordNorm[k])>=0.66-off||strictSame(n,wordNorm[k])))p=k+1;
+  }
+  return p;
+}
+function looksLikeRestart(words){
+  if(pos<4||words.length<2)return false;
+  const n0=norm(words[0]),n1=norm(words[1]);if(!n0||!n1)return false;
+  if(findMatch(n0,pos,2,0.75)===pos)return false;       // वही जगह है जहाँ अभी पढ़ रहे थे
+  return findMatch(n0,0,1,0.75)===0&&findMatch(n1,1,1,0.75)===1;
 }
 function onResult(ev){
   let moved=false;
   for(let i=ev.resultIndex;i<ev.results.length;i++){
-    const r=ev.results[i],words=(r[0].transcript||'').trim().split(/\s+/).filter(Boolean);
-    const upto=r.isFinal?words.length:Math.max(0,words.length-1);   // अधूरा आख़िरी शब्द अभी न गिनें
-    for(let j=consumed[i]||0;j<upto;j++){if(advance(words[j]))moved=true}
-    consumed[i]=Math.max(consumed[i]||0,upto);
+    const r=ev.results[i],text=(r[0].transcript||'').trim();if(!text)continue;
+    lastHeard=Date.now();
+    const words=text.split(/\s+/).filter(Boolean);
+    if(!(i in startPos))startPos[i]=pos;
+    if(!restartChecked[i]&&words.length>=2){
+      restartChecked[i]=true;
+      if(looksLikeRestart(words)){pos=0;startPos[i]=0;lastProgress=Date.now();moved=true;$('micStatus').textContent='🔄 कहानी फिर से शुरू!'}
+    }
+    const np=alignFrom(startPos[i],words);
+    if(np>pos){pos=np;lastProgress=Date.now();moved=true}
   }
   if(moved){gotWords=true;emptyRuns=0;paint();if(pos>=wordEls.length)finishReading()}
 }
 function startRec(){
   if(!listening||!SR)return;
+  // बहुत तेज़ी से बार-बार शुरू/बंद होने (loop) से बचाव
+  const now=Date.now();restartTimes=restartTimes.filter(t=>now-t<6000);restartTimes.push(now);
+  if(restartTimes.length>12){listening=false;clearInterval(stuckTimer);updateMic();$('micStatus').textContent='⚠️ माइक बार-बार बंद हो रहा है। इंटरनेट/अनुमति जाँचकर फिर 🎤 दबाएँ।';return}
   try{
-    rec=new SR();rec.lang='hi-IN';rec.continuous=true;rec.interimResults=true;rec.maxAlternatives=1;consumed={};
+    rec=new SR();rec.lang='hi-IN';rec.continuous=true;rec.interimResults=true;rec.maxAlternatives=1;
+    startPos={};restartChecked={};
     rec.onresult=onResult;
     rec.onerror=e=>{
       if(e.error==='not-allowed'||e.error==='service-not-allowed'){listening=false;updateMic();alert('माइक की अनुमति नहीं मिली। ब्राउज़र की settings में माइक allow करें।')}
       else if(e.error==='network'){listening=false;updateMic();alert('बोलकर पढ़ने के लिए इंटरनेट चाहिए।')}
+      else if(e.error==='audio-capture'){listening=false;updateMic();alert('माइक नहीं मिला। दूसरा app माइक इस्तेमाल कर रहा हो तो उसे बंद करें।')}
     };
-    gotWords=false;
-    rec.onend=()=>{
-      if(!listening||tapSpeaking)return;
-      emptyRuns=gotWords?0:emptyRuns+1;
-      if(emptyRuns>=3){   // 3 बार लगातार कुछ नहीं सुना: बार-बार बीप न बजे इसलिए रुक जाओ
-        listening=false;clearInterval(stuckTimer);updateMic();
-        $('micStatus').textContent='🔇 आवाज़ नहीं आ रही थी, इसलिए माइक बंद कर दिया। फिर से 🎤 दबाएँ।';
-        return;
-      }
-      setTimeout(startRec,500);
-    };
+    // माइक बंद नहीं रहता: सेशन ख़त्म होते ही तुरंत अपने-आप फिर चालू (पढ़ाई की जगह वही रहती है)
+    rec.onend=()=>{if(listening&&!tapSpeaking)setTimeout(startRec,60)};
     rec.start();
   }catch(err){console.error(err)}
 }
 function updateMic(){
   const b=$('micBtn');if(!b)return;
   b.textContent=listening?'⏹ पढ़ना बंद करें':'🎤 बोलकर पढ़ें';
+  const rb=$('restartBtn');if(rb)rb.classList.toggle('hidden',!listening);
   $('micStatus').textContent=listening?'🎙️ सुन रहा हूँ… कहानी पढ़ना शुरू करो! (अटको तो शब्द पर टैप करो)':'💡 अटक जाओ तो किसी शब्द पर टैप करो — वो बोलकर सुनाएगा।';
   paint();
 }
@@ -408,10 +431,11 @@ function startListening(){
     localStorage.setItem('rk_mic_ok','1');
   }}catch(_){}
   stopSpeech();stopMedia();
-  pos=0;emptyRuns=0;listening=true;lastProgress=Date.now();updateMic();startRec();
+  pos=0;emptyRuns=0;restartTimes=[];listening=true;lastProgress=lastHeard=Date.now();updateMic();startRec();
   clearInterval(stuckTimer);
   stuckTimer=setInterval(()=>{                       // 5 सेकंड कोई शब्द नहीं बना तो आगे वाले शब्द पर इशारा
-    if(listening&&wordEls[pos]&&Date.now()-lastProgress>5000)wordEls[pos].classList.add('hint');
+    if(listening&&wordEls[pos]&&Date.now()-lastProgress>7000)wordEls[pos].classList.add('hint');
+    if(listening&&Date.now()-lastHeard>120000){stopListening();$('micStatus').textContent='🔇 2 मिनट से आवाज़ नहीं आई, इसलिए माइक बंद किया। फिर पढ़ना हो तो 🎤 दबाएँ।'}
   },1000);
 }
 function stopListening(){
@@ -423,6 +447,7 @@ function finishReading(){
   stopListening();wordEls.forEach(el=>{el.classList.add('done');el.classList.remove('cur','hint')});
   $('micStatus').textContent='🎉 शाबाश! तुमने पूरी कहानी पढ़ ली!';
 }
+if($('restartBtn'))$('restartBtn').onclick=()=>{pos=0;startPos={};restartChecked={};lastProgress=lastHeard=Date.now();paint();$('micStatus').textContent='🔄 फिर से शुरू! पहले शब्द से पढ़ो।'};
 if($('micBtn')){
   if(!SR)$('micBtn').classList.add('hidden');
   $('micBtn').onclick=()=>listening?stopListening():startListening();
