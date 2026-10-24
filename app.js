@@ -10,7 +10,7 @@ const COLS_FULL = 'id,title,content,emoji,category,image_url,video_url,audio_url
 const COLS_BASIC = 'id,title,content,created_at';
 
 function esc(s){return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function show(section){['home','reader','editor'].forEach(id=>$(id).classList.toggle('hidden',id!==section));window.scrollTo({top:0,behavior:'smooth'})}
+function show(section){['home','reader','editor','quiz'].forEach(id=>$(id).classList.toggle('hidden',id!==section));window.scrollTo({top:0,behavior:'smooth'})}
 function setAdminUI(){
   document.querySelectorAll('.admin-only').forEach(el=>el.classList.toggle('hidden',!isAdmin));
   $('adminLogoutBtn').classList.toggle('hidden',!isAdmin);
@@ -452,6 +452,106 @@ if($('micBtn')){
   if(!SR)$('micBtn').classList.add('hidden');
   $('micBtn').onclick=()=>listening?stopListening():startListening();
 }
+
+
+/* ============ 🎮 हर कहानी का Quiz अपने-आप बनता है ============ */
+const QZ_STOP=new Set(['लेकिन','क्योंकि','उसने','उसके','उसकी','अपनी','अपने','अपना','तभी','हमेशा','सभी','वहाँ','यहाँ','बहुत','उन्होंने','उनकी','उनके','इसलिए','अचानक','कुछ','कोई','उन्हें','मेरी','मेरा','तुम्हारी','तुम्हारा','हमारी','हमारा','करने','करना','होता','होती','जाता','जाती','वाला','वाली','वाले','लगा','लगी','लगे','रहता','रहती','रहते','बोला','बोली','पूछा','कहा','फिर','सच-सच','आखिर','आख़िर','जैसे','जिससे','जिसे','सब','सबने','किसी','बाद','पहले','साथ','लिए']);
+const QZ_WRONG_MORALS=['झूठ बोलना अच्छा है','दूसरों की चीज़ें रख लेनी चाहिए','मेहनत से बचना चाहिए','किसी की मदद नहीं करनी चाहिए','घमंड करना अच्छी बात है'];
+let qz={qs:[],i:0,points:0,pick:null,locked:false,story:null};
+const shuffleArr=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const isDev=w=>/[ऀ-ॿ]/.test(w);
+const goodWord=w=>w&&isDev(w)&&Array.from(w).length>=4&&!QZ_STOP.has(w);
+function getMoral(text){const m=(text||'').match(/सीख\s*[:：]\s*([^\n]+)/);return m?m[1].trim().replace(/[.।\s]+$/,''):null}
+const plainTok=t=>!/[-–—]/.test(t);
+function uniqueWords(text){return [...new Set((text||'').split(/\s+/).filter(plainTok).map(cleanWord).filter(goodWord))]}
+
+function buildQuiz(story){
+  const qs=[],others=stories.filter(x=>x.id!==story.id);
+  // 1) कहानी का नाम
+  const wrongTitles=shuffleArr([...new Set(others.map(o=>o.title).filter(t=>t&&t!==story.title))]).slice(0,3);
+  if(wrongTitles.length>=1)qs.push({kind:'title',q:'इस कहानी का नाम क्या है?',opts:shuffleArr([story.title,...wrongTitles]),ans:story.title,exp:'कहानी का नाम “'+story.title+'” है।',hint:'कहानी के सबसे ऊपर लिखा नाम याद करो।'});
+  // 2) सीख
+  const moral=getMoral(story.text);
+  let moralQ=null;
+  if(moral){
+    let wrong=[...new Set(others.map(o=>getMoral(o.text)).filter(m=>m&&m!==moral))];wrong=shuffleArr(wrong).slice(0,3);
+    for(const g of shuffleArr(QZ_WRONG_MORALS)){if(wrong.length>=3)break;wrong.push(g)}
+    moralQ={kind:'moral',q:'इस कहानी से हमें क्या सीख मिलती है?',opts:shuffleArr([moral,...wrong]),ans:moral,exp:'कहानी की सीख: '+moral+'।',hint:'कहानी के आख़िर में लिखी सीख पढ़ो।'};
+  }
+  // 3) खाली जगह भरो (वाक्यों से)
+  const body=(story.text||'').replace(/सीख\s*[:：][^\n]*/g,'');
+  const sents=body.split(/(?<=[।!?][”’"']?|\n)/).map(x=>x.trim()).filter(x=>{const n=x.split(/\s+/).length,q1=(x.match(/“/g)||[]).length,q2=(x.match(/”/g)||[]).length;return n>=5&&n<=26&&q1===q2});   // अधूरे उद्धरण वाले वाक्य छोड़ो
+  const pool=[...new Set([...uniqueWords(body),...others.flatMap(o=>uniqueWords(o.text))])];
+  const want=5-qs.length-(moralQ?1:0);
+  const order=shuffleArr(sents.map((x,i)=>i)),made=[];
+  for(const si of order){
+    if(made.length>=want)break;
+    const sent=sents[si],toks=sent.split(/\s+/);
+    const cands=toks.map((t,i)=>({t,i,w:cleanWord(t)})).filter(c=>plainTok(c.t)&&goodWord(c.w)&&c.t.includes(c.w));
+    if(!cands.length)continue;
+    const c=cands[Math.floor(Math.random()*cands.length)];
+    const inSent=new Set(toks.map(cleanWord));
+    const stem=x=>Array.from(x).slice(0,3).join('');
+    const dis=shuffleArr(pool.filter(w=>w!==c.w&&!inSent.has(w)&&stem(w)!==stem(c.w)))
+      .sort((a,b)=>Math.abs(Array.from(a).length-Array.from(c.w).length)-Math.abs(Array.from(b).length-Array.from(c.w).length)).slice(0,3);
+    if(dis.length<3)continue;
+    const blanked=toks.map((t,i)=>i===c.i?t.replace(c.w,'_____'):t).join(' ');
+    made.push({si,item:{kind:'cloze',q:'खाली जगह भरो:\n'+blanked,opts:shuffleArr([c.w,...dis]),ans:c.w,exp:'सही वाक्य: '+sent,hint:'वाक्य को ध्यान से पढ़ो। सही शब्द “'+Array.from(c.w)[0]+'” से शुरू होता है।'}});
+  }
+  made.sort((a,b)=>a.si-b.si).forEach(m=>qs.push(m.item));
+  if(moralQ)qs.push(moralQ);
+  return qs;
+}
+
+function qzShow(){
+  const item=qz.qs[qz.i],n=qz.qs.length;
+  qz.pick=null;qz.locked=false;
+  $('qzCount').textContent='सवाल '+(qz.i+1)+' / '+n;$('qzScore').textContent='⭐ '+qz.points+' अंक';
+  $('qzBar').style.width=(qz.i/n*100)+'%';$('qzQ').textContent=item.q;
+  const box=$('qzOpts');box.textContent='';
+  item.opts.forEach((txt,k)=>{
+    const b=document.createElement('button');b.className='opt';b.textContent=['A','B','C','D'][k]+'. '+txt;
+    b.onclick=()=>{if(qz.locked)return;qz.pick=k;[...box.children].forEach((x,j)=>x.classList.toggle('sel',j===k));$('qzCheck').disabled=false};
+    box.appendChild(b);
+  });
+  $('qzFeedback').classList.add('hidden');$('qzCheck').classList.remove('hidden');$('qzCheck').disabled=true;$('qzNext').classList.add('hidden');
+  $('qzGame').classList.remove('hidden');$('qzResult').classList.add('hidden');
+}
+function startQuiz(storyId){
+  const s=stories.find(x=>x.id===String(storyId||currentId));if(!s)return;
+  stopSpeech();stopMedia();
+  const qs=buildQuiz(s);
+  qz={qs,i:0,points:0,pick:null,locked:false,story:s};
+  $('qzTitle').textContent='🎮 '+s.title;
+  show('quiz');
+  if(qs.length<2){
+    $('qzGame').classList.add('hidden');$('qzResult').classList.remove('hidden');
+    $('qzFinal').textContent='😅';$('qzMsg').textContent='इस कहानी का quiz अभी नहीं बन पाया (कहानी बहुत छोटी है)। दूसरी कहानी आज़माओ!';
+    return;
+  }
+  qzShow();
+}
+$('qzCheck').onclick=()=>{
+  if(qz.pick===null||qz.locked)return;qz.locked=true;
+  const item=qz.qs[qz.i],box=$('qzOpts'),right=item.opts.indexOf(item.ans);
+  [...box.children].forEach((b,k)=>{b.disabled=true;if(k===right)b.classList.add('good');if(k===qz.pick&&k!==right)b.classList.add('bad')});
+  const ok=qz.pick===right;if(ok)qz.points++;
+  $('qzFeedback').textContent=ok?'शाबाश! ⭐ सही जवाब। '+item.exp:'कोई बात नहीं! 😊 '+item.exp+'\nसंकेत: '+item.hint;
+  $('qzFeedback').classList.remove('hidden');$('qzScore').textContent='⭐ '+qz.points+' अंक';
+  $('qzBar').style.width=((qz.i+1)/qz.qs.length*100)+'%';
+  $('qzCheck').classList.add('hidden');$('qzNext').classList.remove('hidden');
+  $('qzNext').textContent=qz.i===qz.qs.length-1?'नतीजा देखें 🏆':'अगला सवाल →';
+};
+$('qzNext').onclick=()=>{
+  if(qz.i<qz.qs.length-1){qz.i++;qzShow();return}
+  const n=qz.qs.length;$('qzGame').classList.add('hidden');$('qzResult').classList.remove('hidden');
+  $('qzFinal').textContent=qz.points+' / '+n;
+  $('qzMsg').textContent=qz.points===n?'कमाल! पूरे अंक! 🏆':qz.points>=n*0.6?'बहुत बढ़िया! कहानी फिर पढ़कर दोबारा खेलो। ⭐':'अच्छी कोशिश! कहानी फिर पढ़कर एक बार और खेलो। 😊';
+};
+$('qzAgain').onclick=()=>startQuiz(qz.story&&qz.story.id);   // नए सवाल बनते हैं
+$('qzReadBtn').onclick=()=>{if(qz.story)openStory(qz.story.id)};
+$('qzBackBtn').onclick=()=>show('home');
+$('quizBtn').onclick=()=>startQuiz(currentId);
 
 /* ---------- शुरुआत ---------- */
 (async()=>{

@@ -35,6 +35,10 @@ button{font:inherit;border:0;cursor:pointer}.pill{padding:10px 14px;border-radiu
 .progress{background:#fff4c8;border-radius:12px;padding:10px 12px;font-size:13px;margin-top:10px}
 .w{border-radius:6px;padding:1px 2px;cursor:pointer;transition:background .2s,color .2s}.w.done{color:#1a8f4c;background:#e6f8ee}.w.cur{background:#ffe58b;color:#24213b;box-shadow:0 0 0 2px #ffe58b}.w.tapped{background:#d9ceff;color:#4b2bd6}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 2px #ff9db8}50%{box-shadow:0 0 0 6px #ff9db855}}.w.hint{background:#ffe0ea;animation:pulse 1s infinite}
+.qz .meta{display:flex;justify-content:space-between;color:#6f6a80;font-size:.9rem}.qz .bar{height:8px;background:#eee9ff;border-radius:9px;margin:12px 0 20px;overflow:hidden}.qz .bar span{display:block;height:100%;background:#6d4aff;width:0;transition:width .3s}
+.qz .q{font-size:1.2rem;line-height:1.6;white-space:pre-wrap;margin:0 0 8px}.qz .opt{display:block;width:100%;text-align:left;margin:9px 0;padding:13px;border:2px solid #e7e1fb;border-radius:12px;background:#fff;color:#29233d;cursor:pointer;font:inherit}
+.qz .opt.sel{background:#f0ebff;border-color:#6d4aff}.qz .opt.good{background:#e7f8ee;border-color:#23985b}.qz .opt.bad{background:#fff0f1;border-color:#d64c59}.qz .feedback{background:#f6f3ff;padding:12px;border-radius:12px;margin-top:12px;line-height:1.6;white-space:pre-wrap}
+.qz .btn{padding:12px 16px;border:0;border-radius:12px;background:#6d4aff;color:#fff;font-weight:700;cursor:pointer}.qz .btn:disabled{opacity:.4}.qz .btn.soft{background:#eee9ff;color:#6d4aff}.qz h1{font-size:46px;margin:6px 0}
 @media(min-width:600px){header{padding-left:max(22px,calc((100% - 720px)/2));padding-right:max(22px,calc((100% - 720px)/2))}}
 </style>
 </head>
@@ -57,7 +61,14 @@ button{font:inherit;border:0;cursor:pointer}.pill{padding:10px 14px;border-radiu
 <div class="muted" id="readMeta">हिंदी कहानी</div>
 <div id="readAudio" class="mediabox hidden"></div><div id="readVideo" class="mediabox hidden"></div><p class="storytext" id="readText"></p>
 <div class="muted" id="micStatus" style="margin-top:10px"></div>
-<div class="controls"><button class="primary" id="speakBtn">🔊 कहानी सुनें</button><button class="primary" id="micBtn" style="background:#e0447a">🎤 बोलकर पढ़ें</button><button class="secondary hidden" id="restartBtn">🔄 फिर से शुरू</button><button class="secondary" id="pauseBtn">⏸ रोकें</button><button class="secondary" id="resumeBtn">▶️ जारी रखें</button><button class="secondary" id="stopBtn">⏹ बंद करें</button><button class="secondary hidden admin-only" id="editCurrentBtn">✏️ Edit करें</button></div>
+<div class="controls"><button class="primary" id="speakBtn">🔊 कहानी सुनें</button><button class="primary" id="micBtn" style="background:#e0447a">🎤 बोलकर पढ़ें</button><button class="secondary hidden" id="restartBtn">🔄 फिर से शुरू</button><button class="secondary" id="pauseBtn">⏸ रोकें</button><button class="secondary" id="resumeBtn">▶️ जारी रखें</button><button class="secondary" id="quizBtn">🎮 Quiz खेलें</button><button class="secondary" id="stopBtn">⏹ बंद करें</button><button class="secondary hidden admin-only" id="editCurrentBtn">✏️ Edit करें</button></div>
+</section>
+<section id="quiz" class="panel qz hidden">
+<button class="secondary" id="qzBackBtn">← सभी कहानियाँ</button>
+<h2 id="qzTitle" style="margin:12px 0 4px"></h2>
+<div id="qzGame"><div class="meta"><span id="qzCount"></span><span id="qzScore">⭐ 0 अंक</span></div><div class="bar"><span id="qzBar"></span></div><div class="q" id="qzQ"></div><div id="qzOpts"></div><div id="qzFeedback" class="feedback hidden" role="status" aria-live="polite"></div>
+<p><button class="btn" id="qzCheck" disabled>जवाब चेक करें</button> <button class="btn soft hidden" id="qzNext">अगला सवाल →</button></p></div>
+<div id="qzResult" class="hidden" style="text-align:center"><h2>🎉 खेल पूरा हुआ!</h2><h1 id="qzFinal"></h1><p id="qzMsg"></p><p><button class="btn" id="qzAgain">🔁 फिर से खेलें</button> <button class="btn soft" id="qzReadBtn">📖 कहानी फिर पढ़ें</button></p></div>
 </section>
 <section id="editor" class="panel hidden">
 <button class="secondary" id="cancelEditBtn">← वापस</button><h2 id="editorHeading">नई कहानी जोड़ें</h2>
