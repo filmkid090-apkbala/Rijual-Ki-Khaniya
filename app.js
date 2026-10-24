@@ -25,16 +25,33 @@ async function checkIsAdmin(userId){
   return !!data;
 }
 
+/* ---------- Offline: पिछली बार की कहानियाँ फोन में सेव रहती हैं (सिर्फ़ पढ़ने के लिए, database को नहीं छूता) ---------- */
+const CACHE_KEY='rk_stories_v1';
+function saveCache(rows){try{if(rows.length)localStorage.setItem(CACHE_KEY,JSON.stringify(rows))}catch(_){}}
+function showOffline(on){const n=$('offlineNote');if(n)n.classList.toggle('hidden',!on)}
+function loadFromCache(){
+  try{
+    const d=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
+    if(Array.isArray(d)&&d.length){stories=d.map(fromDb);render();showOffline(true);return true}
+  }catch(_){}
+  return false;
+}
 async function loadStories(){
   $('cards').innerHTML='<p class="muted">कहानियाँ लोड हो रही हैं…</p>';
   if(!configured){$('cards').innerHTML='<p>वेबसाइट सेटअप पूरा नहीं हुआ है। Admin को config.js में Supabase की जानकारी भरनी होगी।</p>';return}
-  let res=await supabaseClient.from('stories').select(hasMediaCols?COLS_FULL:COLS_BASIC).order('created_at',{ascending:false});
+  let res;
+  try{res=await supabaseClient.from('stories').select(hasMediaCols?COLS_FULL:COLS_BASIC).order('created_at',{ascending:false})}catch(e){res={error:e}}
   // अगर नए columns (emoji/image/video/audio) अभी database में नहीं हैं, तो पुराने तरीके से चलाओ
   if(res.error&&hasMediaCols&&/column|schema cache/i.test(res.error.message||'')){
     hasMediaCols=false;setAdminUI();
     res=await supabaseClient.from('stories').select(COLS_BASIC).order('created_at',{ascending:false});
   }
-  if(res.error){console.error(res.error);$('cards').innerHTML='<p>कहानियाँ लोड नहीं हुईं। इंटरनेट और Supabase की policies/table जाँचें।</p>';return}
+  if(res.error){
+    console.error(res.error);
+    if(loadFromCache())return;   // इंटरनेट नहीं है तो पिछली बार वाली कहानियाँ दिखाओ
+    $('cards').innerHTML='<p>कहानियाँ लोड नहीं हुईं। इंटरनेट और Supabase की policies/table जाँचें।</p>';return;
+  }
+  saveCache(res.data||[]);showOffline(false);
   stories=(res.data||[]).map(fromDb);
   render();
 }
@@ -50,13 +67,13 @@ function render(){
 }
 
 /* ---------- कहानी खोलना ---------- */
-function stopMedia(){document.querySelectorAll('#reader audio,#reader video').forEach(m=>{try{m.pause()}catch(_){}})}
+function stopMedia(){stopListening();document.querySelectorAll('#reader audio,#reader video').forEach(m=>{try{m.pause()}catch(_){}})}
 function openStory(id){
   const s=stories.find(x=>x.id===String(id));if(!s)return;
-  currentId=s.id;stopMedia();
+  stopMedia();currentId=s.id;
   const art=$('readEmoji');art.textContent='';
   if(s.image){const im=document.createElement('img');im.alt=s.title;im.src=s.image;art.appendChild(im)}else art.textContent=s.emoji;
-  $('readTitle').textContent=s.title;$('readMeta').textContent=s.category;$('readText').textContent=s.text;
+  $('readTitle').textContent=s.title;$('readMeta').textContent=s.category;buildWords(s.text);
   const a=$('readAudio'),v=$('readVideo');a.textContent='';v.textContent='';
   if(s.audio){
     const l=document.createElement('div');l.className='lbl';l.textContent='🎧 कहानी की आवाज़ सुनें';
@@ -259,7 +276,7 @@ $('saveBtn').onclick=async()=>{
   finally{busy=false;$('saveBtn').disabled=false;prog.classList.add('hidden')}
 };
 $('deleteBtn').onclick=async()=>{
-  if(!isAdmin||!editingId||busy)return;if(!confirm('क्या यह कहानी हटानी है?'))return;
+  if(!isAdmin||!editingId||busy)return;{const t=(stories.find(x=>x.id===editingId)||{}).title||'यह कहानी';if(!confirm('⚠️ क्या "'+t+'" हमेशा के लिए हटानी है?\nयह वापस नहीं आएगी।'))return}
   busy=true;
   try{
     const s=stories.find(x=>x.id===editingId);
@@ -271,6 +288,132 @@ $('deleteBtn').onclick=async()=>{
   finally{busy=false}
 };
 
+
+/* ============ शब्द पर टैप = बोलकर सुनाओ  +  बोलकर पढ़ो = शब्द highlight (karaoke) ============ */
+let wordEls=[],wordNorm=[],pos=0,listening=false,rec=null,lastProgress=0,stuckTimer=null,consumed={},tapSpeaking=false;
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+
+function cleanWord(w){return w.replace(/[।॥.,!?;:"“”‘’'()\[\]\-–—…॥]/g,'').trim()}
+function norm(w){
+  return cleanWord(w).toLowerCase().normalize('NFC')
+    .replace(/[​-‍़]/g,'').replace(/ँ/g,'ं');
+}
+function skeleton(w){return w.replace(/[ा-्ंःँ]/g,'')}
+function lev(a,b){
+  const m=a.length,n=b.length;if(!m)return n;if(!n)return m;
+  let prev=Array.from({length:n+1},(_,i)=>i);
+  for(let i=1;i<=m;i++){const cur=[i];for(let j=1;j<=n;j++)cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));prev=cur}
+  return prev[n];
+}
+function similar(a,b){
+  if(!a||!b)return 0;if(a===b)return 1;
+  const full=1-lev(a,b)/Math.max(a.length,b.length);
+  const sa=skeleton(a),sb=skeleton(b);
+  const sk=(sa&&sb)?1-lev(sa,sb)/Math.max(sa.length,sb.length):0;
+  return Math.max(full,sk*0.9);
+}
+
+function buildWords(text){
+  const box=$('readText');box.textContent='';wordEls=[];wordNorm=[];pos=0;
+  text.split(/(\s+)/).forEach(tok=>{
+    if(!tok)return;
+    if(/^\s+$/.test(tok)){box.appendChild(document.createTextNode(tok));return}
+    const sp=document.createElement('span');sp.className='w';sp.textContent=tok;sp.dataset.i=wordEls.length;
+    box.appendChild(sp);wordEls.push(sp);wordNorm.push(norm(tok));
+  });
+  $('micStatus').textContent=SR?'💡 अटक जाओ तो किसी शब्द पर टैप करो — वो बोलकर सुनाएगा।':'💡 किसी शब्द पर टैप करो — वो बोलकर सुनाएगा।';
+}
+function paint(){
+  wordEls.forEach((el,i)=>{el.classList.toggle('done',i<pos);el.classList.toggle('cur',listening&&i===pos);if(i!==pos)el.classList.remove('hint')});
+  const c=wordEls[pos];if(listening&&c&&c.scrollIntoView){const r=c.getBoundingClientRect();if(r.top<80||r.bottom>innerHeight-80)c.scrollIntoView({block:'center',behavior:'smooth'})}
+}
+
+// ---- टैप करके शब्द सुनना
+function speakWord(raw){
+  if(!('speechSynthesis'in window)){alert('इस ब्राउज़र में आवाज़ उपलब्ध नहीं है।');return}
+  const w=cleanWord(raw);if(!w)return;
+  stopSpeech();
+  const wasListening=listening;
+  if(wasListening&&rec){tapSpeaking=true;try{rec.abort()}catch(_){}}
+  const u=new SpeechSynthesisUtterance(w);u.lang='hi-IN';u.rate=.65;u.pitch=1.05;
+  const hi=speechSynthesis.getVoices().find(v=>/^hi(-|_|$)/i.test(v.lang));if(hi)u.voice=hi;
+  const done=()=>{tapSpeaking=false;if(wasListening&&listening)startRec()};
+  u.onend=done;u.onerror=done;
+  speechSynthesis.speak(u);
+}
+$('readText').addEventListener('click',e=>{
+  const el=e.target.closest&&e.target.closest('.w');if(!el)return;
+  el.classList.add('tapped');setTimeout(()=>el.classList.remove('tapped'),900);
+  speakWord(el.textContent);
+});
+
+// ---- बोलकर पढ़ना
+function advance(spoken){
+  const n=norm(spoken);if(!n)return false;
+  let best=-1,bestScore=0;
+  for(let k=pos;k<Math.min(wordNorm.length,pos+5);k++){
+    const sc=similar(n,wordNorm[k])-(k-pos)*0.04;   // पास वाले शब्द को तरजीह
+    if(sc>bestScore){bestScore=sc;best=k}
+  }
+  if(best>=0&&bestScore>=0.6){pos=best+1;lastProgress=Date.now();return true}
+  return false;
+}
+function onResult(ev){
+  let moved=false;
+  for(let i=ev.resultIndex;i<ev.results.length;i++){
+    const r=ev.results[i],words=(r[0].transcript||'').trim().split(/\s+/).filter(Boolean);
+    const upto=r.isFinal?words.length:Math.max(0,words.length-1);   // अधूरा आख़िरी शब्द अभी न गिनें
+    for(let j=consumed[i]||0;j<upto;j++){if(advance(words[j]))moved=true}
+    consumed[i]=Math.max(consumed[i]||0,upto);
+  }
+  if(moved){paint();if(pos>=wordEls.length)finishReading()}
+}
+function startRec(){
+  if(!listening||!SR)return;
+  try{
+    rec=new SR();rec.lang='hi-IN';rec.continuous=true;rec.interimResults=true;rec.maxAlternatives=1;consumed={};
+    rec.onresult=onResult;
+    rec.onerror=e=>{
+      if(e.error==='not-allowed'||e.error==='service-not-allowed'){listening=false;updateMic();alert('माइक की अनुमति नहीं मिली। ब्राउज़र की settings में माइक allow करें।')}
+      else if(e.error==='network'){listening=false;updateMic();alert('बोलकर पढ़ने के लिए इंटरनेट चाहिए।')}
+    };
+    rec.onend=()=>{if(listening&&!tapSpeaking)setTimeout(startRec,250)};
+    rec.start();
+  }catch(err){console.error(err)}
+}
+function updateMic(){
+  const b=$('micBtn');if(!b)return;
+  b.textContent=listening?'⏹ पढ़ना बंद करें':'🎤 बोलकर पढ़ें';
+  $('micStatus').textContent=listening?'🎙️ सुन रहा हूँ… कहानी पढ़ना शुरू करो! (अटको तो शब्द पर टैप करो)':'💡 अटक जाओ तो किसी शब्द पर टैप करो — वो बोलकर सुनाएगा।';
+  paint();
+}
+function startListening(){
+  if(!SR){alert('बोलकर पढ़ना इस ब्राउज़र में नहीं चलता। Android के Chrome में खोलें।');return}
+  try{if(!localStorage.getItem('rk_mic_ok')){
+    if(!confirm('🎤 बच्चे की आवाज़ पहचानने के लिए फ़ोन की speech service (Google) इस्तेमाल होती है और माइक की अनुमति चाहिए। क्या आगे बढ़ें?'))return;
+    localStorage.setItem('rk_mic_ok','1');
+  }}catch(_){}
+  stopSpeech();stopMedia();
+  pos=0;listening=true;lastProgress=Date.now();updateMic();startRec();
+  clearInterval(stuckTimer);
+  stuckTimer=setInterval(()=>{                       // 5 सेकंड कोई शब्द नहीं बना तो आगे वाले शब्द पर इशारा
+    if(listening&&wordEls[pos]&&Date.now()-lastProgress>5000)wordEls[pos].classList.add('hint');
+  },1000);
+}
+function stopListening(){
+  const was=listening;listening=false;clearInterval(stuckTimer);
+  if(rec){try{rec.abort()}catch(_){}rec=null}
+  if(was&&$('micBtn'))updateMic();
+}
+function finishReading(){
+  stopListening();wordEls.forEach(el=>{el.classList.add('done');el.classList.remove('cur','hint')});
+  $('micStatus').textContent='🎉 शाबाश! तुमने पूरी कहानी पढ़ ली!';
+}
+if($('micBtn')){
+  if(!SR)$('micBtn').classList.add('hidden');
+  $('micBtn').onclick=()=>listening?stopListening():startListening();
+}
+
 /* ---------- शुरुआत ---------- */
 (async()=>{
   setAdminUI();
@@ -279,7 +422,7 @@ $('deleteBtn').onclick=async()=>{
     st.innerHTML=(configured?'✅ config.js भरा हुआ है':'❌ config.js अभी खाली है — उसमें Supabase URL, key और email भरें')+'<br>'+(window.supabase?'✅ Supabase चालू':'❌ Supabase library load नहीं हुई (इंटरनेट जाँचें)');
   }
   if(!configured){$('cards').innerHTML='<p>Setup बाकी है। config.js में Supabase URL, Publishable key और Admin email भरने के बाद वेबसाइट चलने लगेगी।</p>';return}
-  if(!window.supabase){$('cards').innerHTML='<p>Supabase library load नहीं हुई। इंटरनेट कनेक्शन जाँचें।</p>';return}
+  if(!window.supabase){if(!loadFromCache())$('cards').innerHTML='<p>Supabase library load नहीं हुई। इंटरनेट कनेक्शन जाँचें।</p>';return}
   supabaseClient=window.supabase.createClient(config.SUPABASE_URL,config.SUPABASE_PUBLISHABLE_KEY);
   supabaseClient.auth.onAuthStateChange(event=>{
     if(event==='SIGNED_OUT'&&isAdmin){isAdmin=false;setAdminUI();if(!$('editor').classList.contains('hidden'))show('home')}
@@ -293,5 +436,6 @@ $('deleteBtn').onclick=async()=>{
     }
   }catch(err){console.error(err)}
   await loadStories();
+  window.addEventListener('online',()=>loadStories());
   if((location.hash==='#admin'||document.body.dataset.admin)&&!isAdmin)openLogin();
 })();

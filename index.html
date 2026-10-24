@@ -33,6 +33,8 @@ button{font:inherit;border:0;cursor:pointer}.pill{padding:10px 14px;border-radiu
 .mediabox .lbl{font-size:13px;font-weight:750;margin-bottom:6px;color:var(--muted)}
 .filebox{border:1px dashed #cfc6f5;border-radius:14px;padding:10px 12px;margin-top:6px;background:#faf8ff}.filebox small{display:block;color:var(--muted);margin-top:4px}.filebox img.prev{max-width:140px;max-height:100px;border-radius:10px;display:block;margin-top:8px}.filebox label.chk{display:flex;gap:8px;align-items:center;font-weight:500;font-size:13px;margin:8px 0 0}
 .progress{background:#fff4c8;border-radius:12px;padding:10px 12px;font-size:13px;margin-top:10px}
+.w{border-radius:6px;padding:1px 2px;cursor:pointer;transition:background .2s,color .2s}.w.done{color:#1a8f4c;background:#e6f8ee}.w.cur{background:#ffe58b;color:#24213b;box-shadow:0 0 0 2px #ffe58b}.w.tapped{background:#d9ceff;color:#4b2bd6}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 2px #ff9db8}50%{box-shadow:0 0 0 6px #ff9db855}}.w.hint{background:#ffe0ea;animation:pulse 1s infinite}
 @media(min-width:600px){header{padding-left:max(22px,calc((100% - 720px)/2));padding-right:max(22px,calc((100% - 720px)/2))}}
 </style>
 </head>
@@ -43,6 +45,7 @@ button{font:inherit;border:0;cursor:pointer}.pill{padding:10px 14px;border-radiu
 <div class="tools"><button class="pill" id="allBtn">📚 सभी कहानियाँ</button><button class="pill hidden admin-only" id="addBtn">➕ कहानी जोड़ें</button><button class="pill hidden" id="installBtn">📲 App Install करें</button></div>
 <div class="notice hidden" id="installHelp"></div>
 <div class="notice hidden admin-only" id="setupWarn">⚠️ Admin ध्यान दें: फोटो/वीडियो/ऑडियो चालू करने के लिए Supabase SQL Editor में <b>setup_media.sql</b> एक बार चलाएँ।</div>
+<div class="notice hidden" id="offlineNote">📴 इंटरनेट नहीं है — पिछली बार सेव हुई कहानियाँ दिख रही हैं।</div>
 <section id="home">
 <div class="sectionhead"><h2>आज कौन-सी कहानी सुनें?</h2><span class="muted" id="count"></span></div>
 <div id="cards" class="cards"></div>
@@ -53,7 +56,8 @@ button{font:inherit;border:0;cursor:pointer}.pill{padding:10px 14px;border-radiu
 <div class="storyart" id="readEmoji">📖</div><h1 class="storytitle" id="readTitle"></h1>
 <div class="muted" id="readMeta">हिंदी कहानी</div>
 <div id="readAudio" class="mediabox hidden"></div><div id="readVideo" class="mediabox hidden"></div><p class="storytext" id="readText"></p>
-<div class="controls"><button class="primary" id="speakBtn">🔊 कहानी सुनें</button><button class="secondary" id="pauseBtn">⏸ रोकें</button><button class="secondary" id="resumeBtn">▶️ जारी रखें</button><button class="secondary" id="stopBtn">⏹ बंद करें</button><button class="secondary hidden admin-only" id="editCurrentBtn">✏️ Edit करें</button></div>
+<div class="muted" id="micStatus" style="margin-top:10px"></div>
+<div class="controls"><button class="primary" id="speakBtn">🔊 कहानी सुनें</button><button class="primary" id="micBtn" style="background:#e0447a">🎤 बोलकर पढ़ें</button><button class="secondary" id="pauseBtn">⏸ रोकें</button><button class="secondary" id="resumeBtn">▶️ जारी रखें</button><button class="secondary" id="stopBtn">⏹ बंद करें</button><button class="secondary hidden admin-only" id="editCurrentBtn">✏️ Edit करें</button></div>
 </section>
 <section id="editor" class="panel hidden">
 <button class="secondary" id="cancelEditBtn">← वापस</button><h2 id="editorHeading">नई कहानी जोड़ें</h2>

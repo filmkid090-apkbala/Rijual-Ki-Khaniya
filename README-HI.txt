@@ -71,3 +71,20 @@ ADMIN PAGE (sabse aasan tareeka)
  - Is page par "Admin Login" button dikhta hai aur password box apne-aap khulta hai. Is address ko bookmark kar lein.
  - Ye page public site par kahin link nahi hai, isliye sirf aap jaante hain.
  - Upar ek line batati hai ki config.js bhara hai ya nahi.
+
+=========== V5: BOLKAR PADHNA + SHABD PAR TAP + OFFLINE ===========
+KAHANIYAN SURAKSHIT HAIN: is update mein database ko chhune ya hatane wala koi code nahi hai.
+(Kahani sirf tabhi hatti hai jab admin Edit page par "Kahani hatayein" dabaye aur confirm kare.)
+Is ZIP mein seed_stories.sql, setup_media.sql aur config.js jaanbujhkar nahi hain - aapki apni config.js GitHub par jaisi hai waisi hi rehne dein (use replace NA karein).
+
+1) BOLKAR PADHNA (karaoke): kahani kholkar "Bolkar padhein" dabayein. Bachcha bolta hai, jo shabd bola gaya wo hara hota hai,
+   abhi wala peela. 5 second atke to agle shabd par gulabi ishara aata hai. Pura padhne par "Shabaash!".
+   - Android Chrome (aur installed app) mein chalta hai. Internet aur mic ki permission chahiye.
+   - Awaaz pehchanne ke liye phone ki Google speech service use hoti hai (pehli baar sahmati poochhi jaati hai).
+2) SHABD PAR TAP: kisi bhi shabd par tap karein, wo dheere se bolkar sunayega.
+3) OFFLINE: pehli baar internet par site khol lein. Uske baad internet na ho tab bhi app khulta hai aur pichhli baar ki kahaniyan dikhti hain
+   (photo bhi). Video/audio offline nahi chalte; "Kahani sunein" (computer awaaz) device par Hindi voice ho to offline chalti hai.
+   Nayi kahani jodne/badalne ke liye internet zaroori hai.
+
+NAYA ICON (V6): padhai wala icon (khuli kitaab + graduation cap + sitare). Purana app icon home screen par turant nahi badalta:
+phone se purana app uninstall karke site se dobara "Install app" karein.
