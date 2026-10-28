@@ -40,6 +40,38 @@ button{font:inherit;border:0;cursor:pointer}.pill{padding:10px 14px;border-radiu
 .qz .opt.sel{background:#f0ebff;border-color:#6d4aff}.qz .opt.good{background:#e7f8ee;border-color:#23985b}.qz .opt.bad{background:#fff0f1;border-color:#d64c59}.qz .feedback{background:#f6f3ff;padding:12px;border-radius:12px;margin-top:12px;line-height:1.6;white-space:pre-wrap}
 .qz .btn{padding:12px 16px;border:0;border-radius:12px;background:#6d4aff;color:#fff;font-weight:700;cursor:pointer}.qz .btn:disabled{opacity:.4}.qz .btn.soft{background:#eee9ff;color:#6d4aff}.qz h1{font-size:46px;margin:6px 0}
 @media(min-width:600px){header{padding-left:max(22px,calc((100% - 720px)/2));padding-right:max(22px,calc((100% - 720px)/2))}}
+
+.profile-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.profile-caption {
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  max-width: 125px;
+  line-height: 1.4;
+}
+
+.profile-photo {
+  width: 76px;
+  height: 76px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 4px solid #fff;
+  outline: 3px solid #e3caff;
+  box-shadow: 0 4px 15px #38208040;
+}
+
+@media (max-width: 380px) {
+  .brand { font-size: 18px; }
+  .profile-photo { width: 62px; height: 62px; }
+  .profile-caption { max-width: 100px; font-size: 10px; }
+}
 </style>
 /* 🌈 Rijual Ki Khaniya — New Kids Design */
 header {
@@ -130,16 +162,19 @@ header {
 
 </head>
 <body>
-<header><div class="top"><div><div class="brand" id="brand">🌈 Rijual Ki Khaniya</div><div class="tag">छोटी कहानियाँ, बड़ी सीख</div></div><div><button class="pill hidden" id="adminLogoutBtn">Logout</button></div></div>
-<div class="hero">चलो, कहानी की दुनिया में चलें!<small>पढ़ो और सुनो — पाठकों के लिए लॉगिन नहीं चाहिए ✨</small></div></header>
-<main>
-<div class="tools"><button class="pill" id="allBtn">📚 सभी कहानियाँ</button><a class="pill" href="games.html" style="text-decoration:none;display:inline-block">🎮 Games</a><a class="pill" href="sound-detective.html" style="text-decoration:none;display:inline-block">🔊 आवाज़ पहचानो</a><button class="pill hidden admin-only" id="addBtn">➕ कहानी जोड़ें</button><button class="pill hidden" id="installBtn">📲 App Install करें</button></div>
-<div class="notice hidden" id="installHelp"></div>
-<div class="notice hidden admin-only" id="setupWarn">⚠️ Admin ध्यान दें: फोटो/वीडियो/ऑडियो चालू करने के लिए Supabase SQL Editor में <b>setup_media.sql</b> एक बार चलाएँ।</div>
-<div class="notice hidden" id="offlineNote">📴 इंटरनेट नहीं है — पिछली बार सेव हुई कहानियाँ दिख रही हैं।</div>
-<section id="home">
-<div class="sectionhead"><h2>आज कौन-सी कहानी सुनें?</h2><span class="muted" id="count"></span></div>
-<div id="cards" class="cards"></div>
+<header><
+<div class="top">
+  <div>
+    <div class="brand" id="brand">🌈 Rijual Ki Khaniya</div>
+    <div class="tag">छोटी कहानियाँ, बड़ी सीख</div>
+  </div>
+  <div class="profile-area">
+    <div class="profile-caption">मेरी कहानी की दुनिया 📚✨</div>
+    <img class="profile-photo" src="apple-touch-icon.png" alt="मेरी कहानी की दुनिया">
+    <button class="pill hidden" id="adminLogoutBtn">Logout</button>
+  </div>
+</div>
+
 <div class="notice">📖 कहानियाँ पढ़ने और सुनने के लिए किसी लॉगिन की ज़रूरत नहीं। कार्ड पर क्लिक करें और मज़ा लें! 🎧</div>
 </section>
 <section id="reader" class="panel hidden">
